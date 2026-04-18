@@ -24,7 +24,7 @@ export default async function OrdersPage() {
 
       {!res.ok && (
         <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-          Failed to load orders. Please refresh the page.
+          Failed to load orders (HTTP {res.status}). Please refresh the page.
         </div>
       )}
 

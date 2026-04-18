@@ -21,7 +21,7 @@ export default async function WalletPage() {
         <WalletBalanceCard wallet={wallet} showFundButton={false} />
       ) : (
         <div className="bg-gray-100 rounded-xl p-6 text-gray-400 text-sm">
-          Could not load wallet balance.
+          Could not load wallet balance (HTTP {res.status}).
         </div>
       )}
 
