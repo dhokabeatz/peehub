@@ -74,6 +74,13 @@ DEMO_USER_PASSWORD="Demo1234!"
 DEMO_USER_FULL_NAME="Demo User"
 EOF
 
+# ── Push schema ───────────────────────────────────────────────────────────────
+echo ""
+echo "Pushing schema to production database..."
+echo ""
+
+npx prisma db push --accept-data-loss
+
 # ── Run seed ──────────────────────────────────────────────────────────────────
 echo ""
 echo "Running production seed..."
