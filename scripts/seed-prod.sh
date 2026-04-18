@@ -50,7 +50,7 @@ echo "  ADMIN_NAME   : $PROD_ADMIN_FULL_NAME"
 echo "────────────────────────────────────────────────────"
 echo ""
 read -rp "Proceed with production seed? [y/N] " CONFIRM
-if [[ "${CONFIRM,,}" != "y" ]]; then
+if [[ "$(echo "$CONFIRM" | tr '[:upper:]' '[:lower:]')" != "y" ]]; then
   echo "Aborted."
   exit 0
 fi
@@ -73,6 +73,13 @@ DEMO_USER_EMAIL="demo@peehub.com"
 DEMO_USER_PASSWORD="Demo1234!"
 DEMO_USER_FULL_NAME="Demo User"
 EOF
+
+# ── Push schema ───────────────────────────────────────────────────────────────
+echo ""
+echo "Pushing schema to production database..."
+echo ""
+
+npx prisma db push --accept-data-loss
 
 # ── Run seed ──────────────────────────────────────────────────────────────────
 echo ""
