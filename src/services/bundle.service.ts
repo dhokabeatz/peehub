@@ -1,36 +1,57 @@
-// bundle.service.ts — bundle and network catalog reads.
-// Admin bundle management (create/update/deactivate) also lives here.
-// No Next.js imports — framework-free and unit-testable.
+import {
+  getAllNetworks,
+  getNetworkByCode,
+  getBundlesByNetworkCode,
+  getBundleById,
+  createBundle as dbCreateBundle,
+  updateBundle as dbUpdateBundle,
+} from '@/repositories/bundle.repository'
 
-// TODO: Phase 2
-// import { db } from '@/lib/db'
+// No Next.js imports — framework-free and unit-testable.
 
 export class BundleService {
   async getNetworks() {
-    // TODO: Phase 2
-    // Return all active networks ordered by name
-    throw new Error('Not implemented')
+    return getAllNetworks()
   }
 
-  async getBundlesByNetwork(_networkId: string) {
-    // TODO: Phase 2
-    // Return active bundles for a given network, ordered by price
-    throw new Error('Not implemented')
+  async getNetworkWithBundles(code: string) {
+    const [network, bundles] = await Promise.all([
+      getNetworkByCode(code),
+      getBundlesByNetworkCode(code),
+    ])
+    if (!network) return null
+    return { network, bundles }
   }
 
-  async createBundle(_data: unknown) {
-    // TODO: Phase 2 (Admin)
-    throw new Error('Not implemented')
+  async getBundleById(id: string) {
+    return getBundleById(id)
   }
 
-  async updateBundle(_bundleId: string, _data: unknown) {
-    // TODO: Phase 2 (Admin)
-    throw new Error('Not implemented')
+  async createBundle(data: {
+    networkId: string
+    name: string
+    dataSizeMb: number
+    validityDays: number
+    price: number
+  }) {
+    return dbCreateBundle(data)
   }
 
-  async deactivateBundle(_bundleId: string) {
-    // TODO: Phase 2 (Admin)
-    throw new Error('Not implemented')
+  async updateBundle(
+    id: string,
+    data: Partial<{
+      name: string
+      dataSizeMb: number
+      validityDays: number
+      price: number
+      isActive: boolean
+    }>,
+  ) {
+    return dbUpdateBundle(id, data)
+  }
+
+  async deactivateBundle(id: string) {
+    return dbUpdateBundle(id, { isActive: false })
   }
 }
 

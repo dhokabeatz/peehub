@@ -1,26 +1,45 @@
 import type { IAuthProvider, AuthUser, CreateUserInput } from './provider'
+import { findUserByEmail, findUserByPhone, createUserWithWallet } from '@/repositories/user.repository'
+import { hashPassword, verifyPassword } from './password'
+import { detectIdentifierType, normalizePhone } from '@/lib/utils/phone'
 
-// Implements IAuthProvider using the local database + bcrypt.
-// No Passport imports — this layer is framework-free and unit-testable in isolation.
-// Phase 1 will fill in the implementations.
+// No Passport imports — this class is pure business logic, unit-testable in isolation.
+// Passport strategies (src/lib/auth/passport/) call into this, not the other way around.
 
 export class LocalAuthProvider implements IAuthProvider {
-  async validateCredentials(_identifier: string, _password: string): Promise<AuthUser | null> {
-    // TODO: Phase 1
-    // 1. Detect identifier type (email vs phone) via detectIdentifierType()
-    // 2. Query users table by email or phone
-    // 3. Compare password with bcrypt.compare()
-    // 4. Return null if user not found, inactive, or password mismatch
-    throw new Error('Not implemented')
+  async validateCredentials(identifier: string, password: string): Promise<AuthUser | null> {
+    const type = detectIdentifierType(identifier)
+
+    const dbUser =
+      type === 'email'
+        ? await findUserByEmail(identifier.toLowerCase().trim())
+        : await findUserByPhone(normalizePhone(identifier) ?? identifier.trim())
+
+    // Constant-time path: always call verifyPassword to prevent timing attacks,
+    // even when user is not found (compare against a dummy hash).
+    const hashToCompare = dbUser?.passwordHash ?? '$2b$12$invalidhashfortimingattackprevention'
+    const valid = await verifyPassword(password, hashToCompare)
+
+    if (!dbUser || !dbUser.isActive || !valid) return null
+
+    // Strip passwordHash before returning — AuthUser never carries the hash.
+    const { passwordHash: _hash, ...user } = dbUser
+    return user
   }
 
-  async createUser(_data: CreateUserInput): Promise<AuthUser> {
-    // TODO: Phase 1
-    // 1. Validate at least one of email/phone is provided
-    // 2. Hash password with bcrypt (cost factor 12)
-    // 3. Insert user row
-    // 4. Auto-create wallet in the same transaction
-    throw new Error('Not implemented')
+  async createUser(data: CreateUserInput): Promise<AuthUser> {
+    if (!data.email && !data.phone) {
+      throw new Error('At least one of email or phone is required')
+    }
+
+    const passwordHash = await hashPassword(data.password)
+
+    return createUserWithWallet({
+      fullName: data.fullName.trim(),
+      email: data.email ? data.email.toLowerCase().trim() : undefined,
+      phone: data.phone ? (normalizePhone(data.phone) ?? data.phone.trim()) : undefined,
+      passwordHash,
+    })
   }
 }
 

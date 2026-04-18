@@ -1,4 +1,4 @@
-# Databosshub - Scope Definition
+# PeeHub - Scope Definition
 
 ## 1. Scope Overview
 

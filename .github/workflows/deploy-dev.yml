@@ -1,0 +1,82 @@
+name: Deploy — Dev
+
+# Triggers on every push to the develop branch.
+on:
+  push:
+    branches:
+      - develop
+
+# Concurrency: if a newer push arrives while this run is still in progress,
+# cancel the older run. The group key is per-branch so prod and dev never
+# cancel each other.
+concurrency:
+  group: deploy-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & Deploy to Vercel (preview)
+    runs-on: ubuntu-latest
+
+    # Reference the GitHub Actions "dev" environment.
+    # Secrets scoped to this environment are available here.
+    # Required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+    environment: dev
+
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Node.js ─────────────────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # ── Install dependencies ────────────────────────────────────────────────
+      # npm ci ensures a clean, reproducible install from package-lock.json.
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Prisma generate ─────────────────────────────────────────────────────
+      # Generates the Prisma client from schema.prisma so the build step can
+      # import @prisma/client. The generated files are not committed to git.
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # ── Build ────────────────────────────────────────────────────────────────
+      # next build runs here to catch type errors and build failures before
+      # touching Vercel. The deployment step is skipped if this fails.
+      - name: Build application
+        run: npm run build
+
+      # ── Install Vercel CLI ───────────────────────────────────────────────────
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # ── Pull Vercel project config ───────────────────────────────────────────
+      # Downloads .vercel/project.json and Preview environment variables.
+      # On the Hobby plan, "preview" is the correct environment for non-production
+      # deployments. There is no custom environment support on Hobby.
+      - name: Pull Vercel environment config
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      # ── Vercel build ─────────────────────────────────────────────────────────
+      # Builds the deployment artifact using Vercel's pipeline.
+      # No --prod flag — this produces a preview artifact.
+      - name: Vercel build
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      # ── Deploy as Vercel Preview ─────────────────────────────────────────────
+      # --prebuilt uses the artifact from the build step (no double build).
+      # No --prod flag — this creates a Preview deployment.
+      # In Vercel project settings, assign dev.peehub.hdolabs.com to the
+      # "develop" branch so this preview URL resolves to that domain.
+      - name: Deploy to Vercel (preview)
+        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}

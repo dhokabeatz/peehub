@@ -1,4 +1,4 @@
-# Databosshub - Requirements Document
+# PeeHub - Requirements Document
 
 ## 1. Project Overview
 
