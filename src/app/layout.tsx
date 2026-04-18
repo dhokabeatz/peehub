@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Peehub',
-  description: 'Data bundle purchasing platform',
+  title: 'PeeHub',
+  description: 'Buy data bundles easily across all networks',
 }
 
 export default function RootLayout({

@@ -1,12 +1,12 @@
-# Peehub - Deployment
+# PeeHub - Deployment
 
 ## MVP Target
 
 | Service | Provider |
 |---|---|
-| App hosting | Vercel |
-| Database | Neon (serverless PostgreSQL) or Supabase |
-| Domain | TBD |
+| App hosting | Vercel (CLI-driven via GitHub Actions) |
+| Database | Neon (serverless PostgreSQL) |
+| Domain | hdolabs.com |
 
 ---
 
@@ -42,24 +42,176 @@ PAYMENT_WEBHOOK_SECRET=
 
 ---
 
-## Deploy Steps
+---
 
-1. Push repo to GitHub
-2. Connect repo to Vercel
-3. Set all env vars in Vercel dashboard
-4. Provision Neon/Supabase PostgreSQL instance
-5. Run `npx prisma migrate deploy` against production DB
-6. Run seed script for networks + initial bundles
-7. Verify auth, wallet fund, and order flows manually
-8. Set webhook URL in payment provider dashboard: `https://yourdomain.com/api/payments/webhook`
+## CI/CD Architecture
+
+Deployments are driven by GitHub Actions using the **Vercel CLI** directly.
+Vercel's automatic Git integration is intentionally **disabled** — all deploys
+go through the workflows in `.github/workflows/`.
+
+> **Vercel Hobby plan note:** Custom Vercel environments are a Pro/Team feature.
+> The `develop` branch deploys as a standard **Preview** deployment.
+> `dev.peehub.hdolabs.com` is assigned to the `develop` branch in Vercel Domains
+> so Preview deployments from that branch resolve to the correct domain.
+
+| Branch | GitHub Environment | Vercel deployment type | Domain |
+|---|---|---|---|
+| `develop` | `dev` | Preview | `dev.peehub.hdolabs.com` |
+| `main` | `prod` | Production | `peehub.hdolabs.com` |
+
+---
+
+## One-Time Setup
+
+### 1. Link the local repo to Vercel
+
+Run this once in the project root. It creates `.vercel/project.json` (gitignored)
+which stores the org and project IDs that the CLI needs.
+
+```bash
+npm install --global vercel
+vercel login
+vercel link
+```
+
+After linking, retrieve the IDs:
+
+```bash
+cat .vercel/project.json
+# { "orgId": "team_xxx", "projectId": "prj_xxx" }
+```
+
+You'll need these values for the GitHub secrets below.
+
+---
+
+### 2. Configure GitHub Actions environments
+
+In **GitHub → Settings → Environments**, create two environments:
+
+#### `dev` environment
+Add these secrets:
+
+| Secret | Value |
+|---|---|
+| `VERCEL_TOKEN` | Your Vercel personal access token (vercel.com → Account Settings → Tokens) |
+| `VERCEL_ORG_ID` | `orgId` from `.vercel/project.json` |
+| `VERCEL_PROJECT_ID` | `projectId` from `.vercel/project.json` |
+
+#### `prod` environment
+Add the **same three secrets** with the same names. You can use the same token and IDs — the environment boundary in GitHub provides the deployment protection rules.
+
+Optionally add required reviewers or wait timers to `prod` for manual gate control.
+
+---
+
+### 3. Configure Vercel project
+
+#### Disable automatic Git deployments
+In Vercel → Project → Settings → Git, disconnect or disable auto-deployments.
+This prevents Vercel from deploying on push independently of GitHub Actions.
+
+#### Assign the develop branch domain
+In Vercel → Project → Settings → Domains, add `dev.peehub.hdolabs.com` and set
+its **Git branch** to `develop`. Vercel will then route Preview deployments from
+the `develop` branch to this domain automatically.
+
+| Domain | Git branch |
+|---|---|
+| `peehub.hdolabs.com` | *(production — no branch filter needed)* |
+| `dev.peehub.hdolabs.com` | `develop` |
+
+#### Preview environment variables
+On the Hobby plan there is one shared **Preview** environment for all non-production
+deployments. Set Preview env vars in Vercel → Project → Settings → Environment Variables,
+choosing the **Preview** scope. If `develop` needs different values from other preview
+branches (e.g. a separate DB URL), Vercel Hobby supports per-branch overrides on
+individual variables via the "Add another" option on each variable row.
+
+---
+
+### 4. DNS setup
+
+Add these records in your DNS provider for `hdolabs.com`:
+
+| Type | Name | Value |
+|---|---|---|
+| `CNAME` | `peehub` | `cname.vercel-dns.com` |
+| `CNAME` | `dev.peehub` | `cname.vercel-dns.com` |
+
+Vercel will issue TLS certificates automatically once the DNS records propagate.
+
+---
+
+## Environment Variables
+
+Set these in Vercel under the appropriate scope — **Production** for `main`,
+**Preview** for `develop`. Values should differ between scopes (separate DB URLs,
+JWT secrets, etc.).
+
+```env
+# Database (use separate Neon branches or databases per scope)
+DATABASE_URL=postgresql://...
+DIRECT_URL=postgresql://...
+
+# App URL (used by serverFetch for internal API calls)
+NEXT_PUBLIC_APP_URL=https://peehub.hdolabs.com          # Production scope
+# NEXT_PUBLIC_APP_URL=https://dev.peehub.hdolabs.com    # Preview scope
+
+# Auth — JWT
+AUTH_PROVIDER=local
+JWT_SECRET=<openssl rand -hex 32>
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=30d
+COOKIE_SECURE=true
+
+# Bundle fulfillment
+BUNDLE_PROVIDER=manual
+
+# Payment provider
+PAYMENT_PROVIDER=stub
+# PAYMENT_API_KEY=
+# PAYMENT_WEBHOOK_SECRET=
+```
+
+---
+
+## Workflow Summary
+
+```
+push to develop
+  └─ deploy-dev.yml
+       ├─ npm ci
+       ├─ npx prisma generate
+       ├─ npm run build              ← fails fast if build is broken
+       ├─ vercel pull --environment=preview
+       ├─ vercel build               ← preview artifact (no --prod)
+       └─ vercel deploy --prebuilt   ← preview deployment
+            └─ Vercel routes develop branch → dev.peehub.hdolabs.com
+
+push to main
+  └─ deploy-prod.yml
+       ├─ npm ci
+       ├─ npx prisma generate
+       ├─ npm run build              ← fails fast if build is broken
+       ├─ vercel pull --environment=production
+       ├─ vercel build --prod
+       └─ vercel deploy --prebuilt --prod
+            └─ promotes peehub.hdolabs.com
+```
+
+Concurrency control is enabled per branch — a newer push cancels any
+in-progress run on the same branch, preventing stale deploys from racing.
 
 ---
 
 ## Post-Deploy Checklist
 
-- [ ] Admin account created (direct DB insert or seed script)
-- [ ] Networks seeded (MTN, Telecel, AirtelTigo with prefixes)
-- [ ] At least one bundle per network active
-- [ ] Payment webhook URL registered with provider
-- [ ] Webhook signature verification tested
-- [ ] Order creation + wallet deduction tested end-to-end
+- [ ] Admin account seeded (`npx prisma db seed` against production DB)
+- [ ] Networks and bundles seeded (MTN, Telecel, AirtelTigo)
+- [ ] `COOKIE_SECURE=true` confirmed in Vercel production environment
+- [ ] `NEXT_PUBLIC_APP_URL` set correctly in each Vercel environment
+- [ ] Domain DNS propagated and TLS certificates issued by Vercel
+- [ ] Auth, wallet fund, and order flows tested manually on each environment
+- [ ] Payment webhook URL registered with provider: `https://peehub.hdolabs.com/api/payments/webhook`

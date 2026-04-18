@@ -1,43 +1,86 @@
-// wallet.service.ts — wallet balance reads, funding initiation, and debit-on-order.
-// Uses SELECT FOR UPDATE inside $transaction() to prevent double-spend.
+import { Decimal } from '@prisma/client/runtime/library'
+import { db } from '@/lib/db'
+import { getWalletByUserId, creditWalletTx } from '@/repositories/wallet.repository'
+import {
+  createPaymentTransaction,
+  getPaymentByReference,
+  lockAndGetPaymentTx,
+  updatePaymentStatusTx,
+} from '@/repositories/payment.repository'
+import { generateReference } from '@/lib/utils/reference'
+import { WalletNotFoundError } from '@/lib/errors/order.errors'
+import { PaymentNotFoundError, PaymentAlreadyProcessedError } from '@/lib/errors/payment.errors'
+
 // No Next.js imports — framework-free and unit-testable.
 
-// TODO: Phase 3
-// import { db } from '@/lib/db'
-// import { generateReference } from '@/lib/utils/reference'
-// import type { FundWalletInput } from '@/types/wallet'
-
 export class WalletService {
-  async getBalance(_userId: string) {
-    // TODO: Phase 3
-    // 1. Query wallet row by userId
-    // 2. Return { balance, currency: 'GHS' }
-    throw new Error('Not implemented')
+  async getBalance(userId: string) {
+    const wallet = await getWalletByUserId(userId)
+    if (!wallet) return null
+    return {
+      balance: wallet.balance.toString(),
+      currency: 'GHS',
+    }
   }
 
-  async fundWallet(_input: unknown) {
-    // TODO: Phase 6 (Payment Integration)
-    // 1. Generate unique reference
-    // 2. Call paymentProvider.initiatePayment()
-    // 3. Create pending WalletTransaction row
-    // 4. Return { checkoutUrl }
-    throw new Error('Not implemented')
+  async fundWallet(userId: string, input: { amount: number }) {
+    const wallet = await getWalletByUserId(userId)
+    if (!wallet) throw new WalletNotFoundError()
+
+    const amount = new Decimal(input.amount)
+    const reference = generateReference('PAY')
+
+    const payment = await createPaymentTransaction({
+      userId,
+      walletId: wallet.id,
+      amount,
+      provider: 'manual',
+      reference,
+    })
+
+    return {
+      reference: payment.providerReference,
+      amount: payment.amount,
+      currency: 'GHS',
+      status: payment.status,
+      provider: payment.provider,
+    }
   }
 
-  async creditWallet(_reference: string) {
-    // TODO: Phase 6
-    // Called from payment webhook handler after verifying payment.
-    // 1. Find pending WalletTransaction by reference (idempotency guard via UNIQUE constraint)
-    // 2. $transaction(): SELECT FOR UPDATE wallet, credit balance, mark tx completed
-    throw new Error('Not implemented')
-  }
+  async confirmFunding(reference: string) {
+    // Pre-check: fast-fail for non-pending payments before acquiring locks.
+    // The real guard happens inside the transaction — this is just an optimisation.
+    const payment = await getPaymentByReference(reference)
+    if (!payment) throw new PaymentNotFoundError()
+    if (payment.status !== 'pending') throw new PaymentAlreadyProcessedError(payment.status)
 
-  async debitWallet(_userId: string, _amount: number, _description: string) {
-    // TODO: Phase 4
-    // Called by OrderService before placing an order.
-    // 1. $transaction(): SELECT FOR UPDATE wallet, check balance, debit, create tx
-    // 2. Return walletTransaction.id (linked to Order)
-    throw new Error('Not implemented')
+    // Generate the wallet transaction reference outside the transaction.
+    // WTX-... is a separate ledger reference; PAY-... stays on the payment record.
+    // They are linked via metadata so the credit can always be traced back to its payment.
+    const walletTxRef = generateReference('WTX')
+
+    await db.$transaction(async (tx) => {
+      // Re-acquire lock inside the transaction. Concurrent confirms block here
+      // until the first one commits, then re-read status and abort.
+      const locked = await lockAndGetPaymentTx(tx, reference)
+      if (!locked) throw new PaymentNotFoundError()
+      if (locked.status !== 'pending') throw new PaymentAlreadyProcessedError(locked.status)
+
+      await creditWalletTx(
+        tx,
+        locked.walletId,
+        locked.userId,
+        new Decimal(locked.amount),
+        `Wallet top-up`,
+        walletTxRef,
+        { paymentReference: reference },
+      )
+
+      await updatePaymentStatusTx(tx, locked.id, 'success')
+    })
+
+    // Return the updated record after the transaction commits.
+    return getPaymentByReference(reference)
   }
 }
 

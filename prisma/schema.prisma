@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -73,7 +74,7 @@ model Wallet {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user                User                 @relation(fields: [userId], references: [id])
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
   walletTransactions  WalletTransaction[]
   paymentTransactions PaymentTransaction[]
 
@@ -94,10 +95,14 @@ model WalletTransaction {
   metadata      Json?
   createdAt     DateTime              @default(now()) @map("created_at")
 
-  wallet Wallet @relation(fields: [walletId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
-  order  Order?
+  // Restrict: financial records must not be deleted while transactions reference them
+  wallet      Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  user        User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  order       Order? @relation("OriginalDebit")
+  refundOrder Order? @relation("RefundTransaction")
 
+  @@index([walletId])
+  @@index([userId, createdAt])
   @@map("wallet_transactions")
 }
 
@@ -111,6 +116,10 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Composite index: find valid tokens per user (used on logout and token rotation)
+  @@index([userId, revoked])
+  // Index for scheduled cleanup of expired tokens
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
@@ -124,12 +133,13 @@ model PasswordResetToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("password_reset_tokens")
 }
 
 model Network {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String
+  name      String   @unique
   code      String   @unique
   prefixes  String[]
   isActive  Boolean  @default(true) @map("is_active")
@@ -152,9 +162,14 @@ model Bundle {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  network Network @relation(fields: [networkId], references: [id])
+  // Restrict: can't delete a network while bundles reference it
+  network Network @relation(fields: [networkId], references: [id], onDelete: Restrict)
   orders  Order[]
 
+  // Prevent duplicate bundle names within the same network
+  @@unique([networkId, name])
+  // Composite index: primary query pattern — active bundles for a network
+  @@index([networkId, isActive])
   @@map("bundles")
 }
 
@@ -162,8 +177,11 @@ model Order {
   id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId              String      @map("user_id") @db.Uuid
   bundleId            String      @map("bundle_id") @db.Uuid
+  // networkId is intentional denormalization — avoids joining through Bundle to get the
+  // network on every order query, and preserves the network even if the bundle is updated.
   networkId           String      @map("network_id") @db.Uuid
-  walletTransactionId String?     @unique @map("wallet_transaction_id") @db.Uuid
+  walletTransactionId       String?     @unique @map("wallet_transaction_id") @db.Uuid
+  refundWalletTransactionId String?     @unique @map("refund_wallet_transaction_id") @db.Uuid
   recipientPhone      String      @map("recipient_phone")
   amount              Decimal     @db.Decimal(10, 2)
   status              OrderStatus @default(pending)
@@ -173,12 +191,20 @@ model Order {
   createdAt           DateTime    @default(now()) @map("created_at")
   updatedAt           DateTime    @updatedAt @map("updated_at")
 
-  user              User               @relation(fields: [userId], references: [id])
-  bundle            Bundle             @relation(fields: [bundleId], references: [id])
-  network           Network            @relation(fields: [networkId], references: [id])
-  walletTransaction WalletTransaction? @relation(fields: [walletTransactionId], references: [id])
-  processor         User?              @relation("ProcessedBy", fields: [processedBy], references: [id])
+  user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  bundle            Bundle             @relation(fields: [bundleId], references: [id], onDelete: Restrict)
+  network           Network            @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  // SetNull: if a wallet transaction is removed (should not happen in prod), the order
+  // record is preserved but loses its payment link
+  walletTransaction       WalletTransaction? @relation("OriginalDebit",   fields: [walletTransactionId],       references: [id], onDelete: SetNull)
+  // SetNull: refund record is preserved on the order even if the wallet tx is somehow removed
+  refundWalletTransaction WalletTransaction? @relation("RefundTransaction", fields: [refundWalletTransactionId], references: [id], onDelete: SetNull)
+  // SetNull: if an admin account is deactivated/removed, orders they processed remain intact
+  processor               User?              @relation("ProcessedBy", fields: [processedBy], references: [id], onDelete: SetNull)
 
+  @@index([userId, createdAt]) // paginated user order history
+  @@index([userId, status]) // filter user orders by status
+  @@index([status, createdAt]) // admin queue sorted by creation time
   @@map("orders")
 }
 
@@ -194,8 +220,11 @@ model PaymentTransaction {
   createdAt         DateTime          @default(now()) @map("created_at")
   updatedAt         DateTime          @updatedAt @map("updated_at")
 
-  user   User   @relation(fields: [userId], references: [id])
-  wallet Wallet @relation(fields: [walletId], references: [id])
+  // Restrict: financial records must not be deleted while payment transactions exist
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
 
+  @@index([userId])
+  @@index([status])
   @@map("payment_transactions")
 }

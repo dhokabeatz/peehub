@@ -10,6 +10,7 @@ const PUBLIC_API_ROUTES = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/refresh',
+  '/api/networks', // bundle/network catalog is public — no auth required to browse
 ]
 
 const PUBLIC_PAGE_ROUTES = [
