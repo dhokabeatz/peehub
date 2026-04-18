@@ -50,7 +50,7 @@ echo "  ADMIN_NAME   : $PROD_ADMIN_FULL_NAME"
 echo "────────────────────────────────────────────────────"
 echo ""
 read -rp "Proceed with production seed? [y/N] " CONFIRM
-if [[ "${CONFIRM,,}" != "y" ]]; then
+if [[ "$(echo "$CONFIRM" | tr '[:upper:]' '[:lower:]')" != "y" ]]; then
   echo "Aborted."
   exit 0
 fi
