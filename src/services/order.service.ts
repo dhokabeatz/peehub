@@ -95,7 +95,8 @@ export class OrderService {
   }
 
   async getUserOrders(userId: string) {
-    return getOrdersByUserId(userId)
+    const orders = await getOrdersByUserId(userId)
+    return orders.map((o) => this.serializeOrder(o))
   }
 
   async getOrderById(orderId: string, requesterId: string, requesterRole: string) {
@@ -127,11 +128,14 @@ export class OrderService {
   // ── Admin methods ─────────────────────────────────────────────────────────
 
   async adminListOrders(filter?: { status?: OrderStatus }) {
-    return getAllOrders(filter)
+    const orders = await getAllOrders(filter)
+    return orders.map((o) => this.serializeOrder(o))
   }
 
   async adminGetOrder(orderId: string) {
-    return getOrderByIdAdmin(orderId)
+    const order = await getOrderByIdAdmin(orderId)
+    if (!order) return null
+    return this.serializeOrder(order)
   }
 
   async adminUpdateStatus(
@@ -219,6 +223,31 @@ export class OrderService {
         refundWalletTransactionId: refundTx.id,
       })
     })
+  }
+
+  // Converts Prisma Decimal/Date fields to plain strings so the return value
+  // is compatible with the Order / AdminOrder view-model types used in the UI.
+  // Previously handled implicitly by JSON serialisation in the API route;
+  // now required because server components call this service directly.
+  private serializeOrder(order: any) { // Decimal/Date → string at service boundary
+    return {
+      ...order,
+      amount: String(order.amount),
+      createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt,
+      updatedAt: order.updatedAt instanceof Date ? order.updatedAt.toISOString() : order.updatedAt,
+      ...(order.walletTransaction && {
+        walletTransaction: {
+          ...order.walletTransaction,
+          amount: String(order.walletTransaction.amount),
+        },
+      }),
+      ...(order.refundWalletTransaction && {
+        refundWalletTransaction: {
+          ...order.refundWalletTransaction,
+          amount: String(order.refundWalletTransaction.amount),
+        },
+      }),
+    }
   }
 }
 

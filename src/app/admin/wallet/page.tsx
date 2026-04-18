@@ -1,24 +1,10 @@
-import { serverFetch } from '@/app/_lib/fetch'
+import { db } from '@/lib/db'
 import { Card } from '@/components/ui/Card'
 import { ConfirmPaymentForm } from '@/components/forms/ConfirmPaymentForm'
 
 export const metadata = { title: 'Wallet Confirmations · Admin · PeeHub' }
 
 export const dynamic = 'force-dynamic'
-
-interface PendingPayment {
-  id: string
-  providerReference: string | null
-  amount: string
-  provider: string
-  status: string
-  createdAt: string
-  user: {
-    fullName: string
-    email: string | null
-    phone: string | null
-  }
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('en-GH', {
@@ -31,10 +17,22 @@ function formatDate(iso: string) {
 }
 
 export default async function AdminWalletPage() {
-  const res = await serverFetch('/api/admin/payments?status=pending')
-  const { payments = [] }: { payments: PendingPayment[] } = res.ok
-    ? await res.json()
-    : { payments: [] }
+  const payments = await db.paymentTransaction.findMany({
+    where: { status: 'pending' },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+    select: {
+      id: true,
+      providerReference: true,
+      amount: true,
+      provider: true,
+      status: true,
+      createdAt: true,
+      user: {
+        select: { fullName: true, email: true, phone: true },
+      },
+    },
+  })
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
@@ -59,13 +57,7 @@ export default async function AdminWalletPage() {
           </span>
         </h2>
 
-        {!res.ok && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-            Failed to load pending payments. Please refresh.
-          </div>
-        )}
-
-        {res.ok && payments.length === 0 && (
+        {payments.length === 0 && (
           <div className="bg-white border border-gray-200 rounded-xl px-6 py-10 text-center text-sm text-gray-400">
             No pending funding requests.
           </div>
@@ -94,10 +86,10 @@ export default async function AdminWalletPage() {
                         <p className="text-xs text-gray-400">{p.user.email ?? p.user.phone ?? '—'}</p>
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-900">
-                        GHS {p.amount}
+                        GHS {p.amount.toString()}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
-                        {formatDate(p.createdAt)}
+                        {formatDate(p.createdAt.toISOString())}
                       </td>
                     </tr>
                   ))}

@@ -1,17 +1,18 @@
 import Link from 'next/link'
-import { serverFetch } from '@/app/_lib/fetch'
+import { orderService } from '@/services/order.service'
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge'
-import type { AdminOrder, OrderStatus } from '@/types/order'
+import type { OrderStatus } from '@/types/order'
+import type { OrderStatus as PrismaOrderStatus } from '@prisma/client'
 
 export const metadata = { title: 'All Orders · Admin · PeeHub' }
 
 const STATUS_FILTERS: { label: string; value: string }[] = [
-  { label: 'All', value: '' },
-  { label: 'Pending', value: 'pending' },
+  { label: 'All',        value: '' },
+  { label: 'Pending',    value: 'pending' },
   { label: 'Processing', value: 'processing' },
-  { label: 'Completed', value: 'completed' },
-  { label: 'Failed', value: 'failed' },
-  { label: 'Cancelled', value: 'cancelled' },
+  { label: 'Completed',  value: 'completed' },
+  { label: 'Failed',     value: 'failed' },
+  { label: 'Cancelled',  value: 'cancelled' },
 ]
 
 function formatDate(iso: string) {
@@ -30,15 +31,17 @@ interface PageProps {
 
 export default async function AdminOrdersPage({ searchParams }: PageProps) {
   const { status } = await searchParams
-  const query = status ? `?status=${status}` : ''
-  const res = await serverFetch(`/api/admin/orders${query}`)
-  const { orders = [] }: { orders: AdminOrder[] } = res.ok ? await res.json() : { orders: [] }
+  const orders = await orderService.adminListOrders(
+    status ? { status: status as PrismaOrderStatus } : undefined,
+  )
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-bold text-gray-900">All Orders</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{orders.length} order{orders.length !== 1 ? 's' : ''} found</p>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {orders.length} order{orders.length !== 1 ? 's' : ''} found
+        </p>
       </div>
 
       {/* Status filter tabs */}
@@ -62,13 +65,7 @@ export default async function AdminOrdersPage({ searchParams }: PageProps) {
         })}
       </div>
 
-      {!res.ok && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-          Failed to load orders. Please refresh.
-        </div>
-      )}
-
-      {orders.length === 0 && res.ok ? (
+      {orders.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center text-sm text-gray-400">
           No orders found{status ? ` with status "${status}"` : ''}.
         </div>

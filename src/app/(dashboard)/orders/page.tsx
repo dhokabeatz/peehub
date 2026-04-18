@@ -1,14 +1,17 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { serverFetch } from '@/app/_lib/fetch'
+import { getServerSession } from '@/app/_lib/auth'
+import { orderService } from '@/services/order.service'
 import { OrderCard } from '@/components/shared/OrderCard'
 import { Button } from '@/components/ui/Button'
-import type { Order } from '@/types/order'
 
 export const metadata = { title: 'My Orders · PeeHub' }
 
 export default async function OrdersPage() {
-  const res = await serverFetch('/api/orders')
-  const { orders = [] }: { orders: Order[] } = res.ok ? await res.json() : { orders: [] }
+  const session = await getServerSession()
+  if (!session) redirect('/login')
+
+  const orders = await orderService.getUserOrders(session.id)
 
   return (
     <div className="flex flex-col gap-6">
@@ -22,13 +25,7 @@ export default async function OrdersPage() {
         </Link>
       </div>
 
-      {!res.ok && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-          Failed to load orders (HTTP {res.status}). Please refresh the page.
-        </div>
-      )}
-
-      {orders.length === 0 && res.ok ? (
+      {orders.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center">
           <p className="text-gray-400 text-sm mb-4">You haven&apos;t placed any orders yet.</p>
           <Link href="/buy">

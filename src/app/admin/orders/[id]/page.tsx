@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { serverFetch } from '@/app/_lib/fetch'
+import { orderService } from '@/services/order.service'
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge'
 import { AdminOrderForm } from '@/components/forms/AdminOrderForm'
 import { Card } from '@/components/ui/Card'
-import type { AdminOrder, OrderStatus } from '@/types/order'
+import type { OrderStatus } from '@/types/order'
 
 export const metadata = { title: 'Order Detail · Admin · PeeHub' }
 
@@ -28,18 +28,9 @@ interface PageProps {
 
 export default async function AdminOrderDetailPage({ params }: PageProps) {
   const { id } = await params
-  const res = await serverFetch(`/api/admin/orders/${id}`)
+  const order = await orderService.adminGetOrder(id)
 
-  if (res.status === 404) notFound()
-  if (!res.ok) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-        Failed to load order. Please refresh.
-      </div>
-    )
-  }
-
-  const { order }: { order: AdminOrder } = await res.json()
+  if (!order) notFound()
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
@@ -58,14 +49,14 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
         {/* Order info */}
         <Card title="Order">
           <dl className="flex flex-col gap-2 text-sm">
-            <Row label="Bundle" value={order.bundle.name} />
-            <Row label="Size" value={formatMb(order.bundle.dataSizeMb)} />
-            <Row label="Validity" value={`${order.bundle.validityDays} days`} />
-            <Row label="Network" value={order.network.name} />
+            <Row label="Bundle"    value={order.bundle.name} />
+            <Row label="Size"      value={formatMb(order.bundle.dataSizeMb)} />
+            <Row label="Validity"  value={`${order.bundle.validityDays} days`} />
+            <Row label="Network"   value={order.network.name} />
             <Row label="Recipient" value={order.recipientPhone} />
-            <Row label="Amount" value={`GHS ${order.amount}`} />
-            <Row label="Placed" value={formatDate(order.createdAt)} />
-            <Row label="Updated" value={formatDate(order.updatedAt)} />
+            <Row label="Amount"    value={`GHS ${order.amount}`} />
+            <Row label="Placed"    value={formatDate(order.createdAt)} />
+            <Row label="Updated"   value={formatDate(order.updatedAt)} />
             {order.adminNote && <Row label="Admin Note" value={order.adminNote} />}
             {order.providerReference && (
               <Row label="Provider Ref" value={order.providerReference} mono />

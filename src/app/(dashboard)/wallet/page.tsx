@@ -1,14 +1,17 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { serverFetch } from '@/app/_lib/fetch'
+import { getServerSession } from '@/app/_lib/auth'
+import { walletService } from '@/services/wallet.service'
 import { WalletBalanceCard } from '@/components/shared/WalletBalanceCard'
 import { Button } from '@/components/ui/Button'
-import type { WalletBalance } from '@/types/wallet'
 
 export const metadata = { title: 'Wallet · PeeHub' }
 
 export default async function WalletPage() {
-  const res = await serverFetch('/api/wallet')
-  const wallet: WalletBalance | null = res.ok ? await res.json() : null
+  const session = await getServerSession()
+  if (!session) redirect('/login')
+
+  const wallet = await walletService.getBalance(session.id)
 
   return (
     <div className="flex flex-col gap-6">
@@ -21,7 +24,7 @@ export default async function WalletPage() {
         <WalletBalanceCard wallet={wallet} showFundButton={false} />
       ) : (
         <div className="bg-gray-100 rounded-xl p-6 text-gray-400 text-sm">
-          Could not load wallet balance (HTTP {res.status}).
+          Could not load wallet balance.
         </div>
       )}
 

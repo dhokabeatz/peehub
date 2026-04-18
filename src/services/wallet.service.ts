@@ -18,7 +18,7 @@ export class WalletService {
     const wallet = await getWalletByUserId(userId)
     if (!wallet) return null
     return {
-      balance: wallet.balance, // Prisma Decimal — serialises to string in JSON
+      balance: wallet.balance.toString(),
       currency: 'GHS',
     }
   }

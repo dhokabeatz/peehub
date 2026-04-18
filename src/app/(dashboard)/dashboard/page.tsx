@@ -1,23 +1,22 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { serverFetch } from '@/app/_lib/fetch'
+import { getServerSession } from '@/app/_lib/auth'
+import { walletService } from '@/services/wallet.service'
+import { orderService } from '@/services/order.service'
 import { WalletBalanceCard } from '@/components/shared/WalletBalanceCard'
 import { OrderCard } from '@/components/shared/OrderCard'
 import { Button } from '@/components/ui/Button'
-import type { WalletBalance } from '@/types/wallet'
-import type { Order } from '@/types/order'
 
 export const metadata = { title: 'Dashboard · PeeHub' }
 
 export default async function DashboardPage() {
-  const [walletRes, ordersRes] = await Promise.all([
-    serverFetch('/api/wallet'),
-    serverFetch('/api/orders'),
-  ])
+  const session = await getServerSession()
+  if (!session) redirect('/login')
 
-  const wallet: WalletBalance | null = walletRes.ok ? await walletRes.json() : null
-  const { orders = [] }: { orders: Order[] } = ordersRes.ok
-    ? await ordersRes.json()
-    : { orders: [] }
+  const [wallet, orders] = await Promise.all([
+    walletService.getBalance(session.id),
+    orderService.getUserOrders(session.id),
+  ])
 
   const recentOrders = orders.slice(0, 3)
 
