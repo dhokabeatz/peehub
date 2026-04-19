@@ -14,17 +14,13 @@ import {
 // This callback exists so the user is redirected to a meaningful page immediately
 // after completing checkout rather than landing on Paystack's default thank-you page.
 
-function appUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL?.trim()) return process.env.NEXT_PUBLIC_APP_URL.trim()
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  return 'http://localhost:3000'
-}
-
 // GET /api/payments/callback?reference=PAY-xxx
 // Paystack redirects the user's browser here after checkout completes.
 export async function GET(req: NextRequest) {
   const reference = req.nextUrl.searchParams.get('reference')
-  const base = appUrl()
+  // Use the request origin so the redirect always lands on the same deployment
+  // that received the callback — avoids cross-domain session cookie mismatches.
+  const base = req.nextUrl.origin
 
   if (!reference) {
     return NextResponse.redirect(`${base}/wallet/fund?error=missing_reference`)

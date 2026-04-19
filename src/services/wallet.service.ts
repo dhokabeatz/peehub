@@ -35,7 +35,7 @@ export class WalletService {
     }
   }
 
-  async fundWallet(userId: string, input: { amount: number }) {
+  async fundWallet(userId: string, input: { amount: number }, origin?: string) {
     const wallet = await getWalletByUserId(userId)
     if (!wallet) throw new WalletNotFoundError()
 
@@ -65,7 +65,7 @@ export class WalletService {
         email,
         amountGhs: input.amount,
         reference,
-        callbackUrl: `${getAppUrl()}/api/payments/callback`,
+        callbackUrl: `${origin ?? getAppUrl()}/api/payments/callback`,
         metadata: {
           userId,
           walletId: wallet.id,
