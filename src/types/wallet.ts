@@ -9,4 +9,5 @@ export interface FundWalletResult {
   currency: string
   status: string
   provider: string
+  authorization_url?: string  // present when PAYMENT_PROVIDER=paystack; client should redirect here
 }
