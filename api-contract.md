@@ -6,14 +6,16 @@ All endpoints are prefixed with `/api`. All request/response bodies are JSON.
 
 | Cookie | Flags | Path | Max-Age |
 |---|---|---|---|
-| `access_token` | `HttpOnly; Secure; SameSite=Strict` | `/` | 900s (15 min) |
+| `access_token` | `HttpOnly; Secure; SameSite=Lax` | `/` | 900s (15 min) |
 | `refresh_token` | `HttpOnly; Secure; SameSite=Strict` | `/api/auth` | 2592000s (30 days) |
+
+> `access_token` is `SameSite=Lax` so the browser sends it after cross-site redirects from payment providers (e.g. Paystack checkout → our callback). `SameSite=Strict` caused post-payment redirects to land on the login page.
 
 Browser clients send cookies automatically on every request — no extra code needed. The server reads and sets them transparently.
 
 **API / non-browser client fallback**: If the `access_token` cookie is absent, the middleware also accepts `Authorization: Bearer <token>`. For refresh and logout, non-browser clients may pass `{ "refreshToken": "..." }` in the request body instead of relying on the cookie.
 
-Public endpoints (no authentication required): `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `POST /api/auth/reset-password/*`, `GET /api/bundles`, `GET /api/bundles/networks`, `POST /api/payments/webhook`.
+Public endpoints (no authentication required): `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `POST /api/auth/reset-password/*`, `GET /api/networks`, `GET /api/networks/[code]/bundles`, `GET /api/payments/callback`, `POST /api/payments/webhook`.
 
 ---
 
@@ -30,7 +32,7 @@ Public endpoints (no authentication required): `POST /api/auth/register`, `POST 
 }
 
 // Response 201
-// Set-Cookie: access_token=eyJ...; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=900
+// Set-Cookie: access_token=eyJ...; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
 // Set-Cookie: refresh_token=a3f9...; HttpOnly; Secure; SameSite=Strict; Path=/api/auth; Max-Age=2592000
 {
   "user": {
@@ -54,7 +56,7 @@ Public endpoints (no authentication required): `POST /api/auth/register`, `POST 
 }
 
 // Response 200
-// Set-Cookie: access_token=eyJ...; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=900
+// Set-Cookie: access_token=eyJ...; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
 // Set-Cookie: refresh_token=a3f9...; HttpOnly; Secure; SameSite=Strict; Path=/api/auth; Max-Age=2592000
 {
   "user": {

@@ -48,15 +48,17 @@
 
 ---
 
-## ADR-005: Abstracted Payment Service
+## ADR-005: Paystack as Payment Provider
 
-**Status**: Accepted
+**Status**: Accepted (updated — Paystack selected and integrated)
 
-**Context**: Payment provider (Paystack, Hubtel, etc.) is not finalized for MVP.
+**Context**: Payment provider integration was deferred at MVP start. Paystack was subsequently chosen as the payment provider for the Ghana market.
 
-**Decision**: `payment.service.ts` exposes a stable interface (`initiatePayment`, `verifyWebhook`). The concrete implementation is swappable via env config.
+**Decision**: Paystack is integrated via `src/lib/payments/paystack.ts` (HTTP client). `PAYMENT_PROVIDER=paystack` activates it; `stub` leaves the manual flow in place. The webhook (`/api/payments/webhook`) is the primary confirmation path — HMAC-SHA512 verified with raw body read before JSON parsing. The browser callback (`/api/payments/callback`) is UX-only. Both paths call the same idempotent `confirmFunding()` handler with `SELECT FOR UPDATE`.
 
-**Consequences**: MVP ships with a stub. Real provider plugs in without touching wallet or order logic.
+The `callbackUrl` passed to Paystack and the post-payment redirect target are both derived from `req.nextUrl.origin` in the route handler — not from `NEXT_PUBLIC_APP_URL` — to prevent cross-deployment session cookie mismatches on Vercel preview deployments.
+
+**Consequences**: Wallet funding works end-to-end with Paystack test and live keys. Stub path preserved for local dev without keys. Adding a second provider = implement its client file + add a branch in `wallet.service.ts`.
 
 ---
 
@@ -130,10 +132,10 @@
 
 **Context**: Returning tokens in response bodies requires the client to store them (localStorage, sessionStorage, or in-memory state). Any XSS vulnerability on the page can read localStorage and steal tokens. In-memory storage is lost on page refresh, requiring token re-issuance logic on the client.
 
-**Decision**: The server issues both tokens exclusively as `HttpOnly; Secure; SameSite=Strict` cookies on all auth responses (register, login, refresh). The browser sends them automatically; JavaScript cannot read them. Cookie flags:
-- `access_token`: `Path=/`, `Max-Age=900` (15 min)
-- `refresh_token`: `Path=/api/auth`, `Max-Age=2592000` (30 days) — scoped so it is never sent to wallet, order, or admin endpoints
+**Decision**: The server issues both tokens exclusively as `HttpOnly; Secure` cookies on all auth responses (register, login, refresh). Cookie flags:
+- `access_token`: `Path=/`, `Max-Age=900` (15 min), `SameSite=Lax`
+- `refresh_token`: `Path=/api/auth`, `Max-Age=2592000` (30 days), `SameSite=Strict` — scoped so it is never sent to wallet, order, or admin endpoints
 - `Secure` flag active when `COOKIE_SECURE=true` (production); omittable for local HTTP dev
-- Edge middleware reads `access_token` cookie; falls back to `Authorization: Bearer` header for non-browser clients
+- `access_token` is `SameSite=Lax`, not `Strict` — required for cross-site payment provider redirects (Paystack → our domain). `SameSite=Strict` caused users to be redirected to login after completing payment because the browser withheld the cookie on the cross-site top-level navigation back from `checkout.paystack.com`. `Lax` allows cookies on top-level GET navigations (payment callbacks, OAuth) while still blocking them on cross-site POST/fetch.
 
-**Consequences**: XSS cannot steal tokens. CSRF is mitigated by `SameSite=Strict`. Non-browser API clients retain full functionality via the Authorization header + body refresh token fallback. Response bodies no longer carry token values — only the `user` object is returned. Logout clears both cookies by setting `Max-Age=0`.
+**Consequences**: XSS cannot steal tokens. CSRF risk from `SameSite=Lax` is acceptable — state-changing operations require JSON bodies that browsers can't forge cross-site without explicit CORS. Non-browser API clients retain full functionality via the Authorization header + body refresh token fallback. Logout clears both cookies by setting `Max-Age=0`.
