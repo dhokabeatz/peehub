@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { UserProfile } from '@/types/user'
+import { Footer } from '@/components/layout/Footer'
 
 const adminNavLinks = [
   { href: '/admin/orders', label: 'Orders',  icon: ListIcon   },
@@ -106,6 +107,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-6xl w-full mx-auto">
           {children}
         </main>
+        <Footer />
       </div>
     </div>
   )

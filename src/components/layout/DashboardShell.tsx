@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { UserProfile } from '@/types/user'
+import { Footer } from '@/components/layout/Footer'
 
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
@@ -112,6 +113,7 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-5xl w-full mx-auto">
           {children}
         </main>
+        <Footer />
       </div>
     </div>
   )
