@@ -26,7 +26,7 @@ SEED_MODE=dev  npx prisma db seed   # seed everything including demo data (defau
 
 Prisma CLI reads `.env`. Next.js reads `.env.local` (takes precedence at runtime). Both are gitignored. See `.env.example` for all required variables.
 
-Key vars: `DATABASE_URL` (pooler), `DIRECT_URL` (direct), `JWT_SECRET`, `COOKIE_SECURE`, `SEED_MODE`, `AUTH_PROVIDER=local`.
+Key vars: `DATABASE_URL` (pooler), `DIRECT_URL` (direct), `JWT_SECRET`, `COOKIE_SECURE`, `SEED_MODE`, `AUTH_PROVIDER=local`, `PAYMENT_PROVIDER` (`stub` | `paystack`), `PAYSTACK_SECRET_KEY`.
 
 ## Architecture
 
@@ -43,8 +43,10 @@ Route handlers are thin: validate input → call service → return response. Bu
 
 ### Auth flow
 
-- Custom JWT (`jose`) with httpOnly cookies: `access_token` (15m, `Path=/`) and `refresh_token` (30d, `Path=/api/auth`).
+- Custom JWT (`jose`) with httpOnly cookies: `access_token` (15m, `SameSite=lax`, `Path=/`) and `refresh_token` (30d, `SameSite=strict`, `Path=/api/auth`).
+- `access_token` is `SameSite=lax` (not strict) so the browser sends it on cross-site top-level redirects — required for payment provider callbacks (Paystack → our domain).
 - Edge middleware (`src/middleware.ts`) verifies `access_token` cookie or `Authorization: Bearer` header, injects `x-user-id` and `x-user-role` headers for downstream route handlers.
+- `/api/payments/` is in `PUBLIC_API_ROUTES` — callback and webhook must be reachable by Paystack without user auth.
 - `src/app/_lib/auth.ts` — `getServerSession()` for server components (reads cookie directly, no HTTP call).
 - Passport.js wraps credential validation in the login route only. Services have no Passport dependency.
 - `COOKIE_SECURE=false` for local HTTP dev; `true` in production.
@@ -72,14 +74,29 @@ Terminal states have no outgoing transitions. Marking an order `failed` auto-ref
 | `src/services/order.service.ts` | Order placement + admin status updates + auto-refund |
 | `src/services/wallet.service.ts` | Balance reads + fund initiation + payment confirmation |
 | `src/repositories/wallet.repository.ts` | `debitWalletTx`, `creditWalletTx` (transaction-aware) |
+| `src/lib/payments/paystack.ts` | Paystack HTTP client — `initializeTransaction`, `verifyTransaction`, `verifyWebhookSignature` |
+| `src/lib/errors/payment.errors.ts` | `PaymentNotFoundError`, `PaymentAlreadyProcessedError`, `PaystackVerificationError` |
+| `src/app/api/payments/callback/route.ts` | Paystack UX redirect — verifies + credits, redirects to `/wallet?funded=true` |
+| `src/app/api/payments/webhook/route.ts` | Paystack primary confirmation — HMAC verified, `runtime = 'nodejs'` (raw body) |
 | `prisma/schema.prisma` | Single source of truth for DB shape |
 | `prisma/seed.ts` | Idempotent seed (SEED_MODE-aware, Decimal arithmetic) |
+
+### Paystack payment flow
+
+`PAYMENT_PROVIDER=paystack` activates Paystack wallet funding. Flow:
+1. `POST /api/wallet/fund` → `walletService.fundWallet(userId, input, req.nextUrl.origin)` — creates a `pending` PaymentTransaction, calls Paystack initialize, returns `authorization_url`
+2. Browser redirects to Paystack hosted checkout
+3. On payment: Paystack fires `POST /api/payments/webhook` (primary path — HMAC-SHA512 verified, raw body read before JSON parse) and redirects browser to `GET /api/payments/callback`
+4. Both paths call `verifyAndConfirmPaystackPayment(reference)` — validates status, reference, currency, and amount in pesewas, then calls `confirmFunding()` which uses `SELECT FOR UPDATE` for idempotency
+5. Callback redirects to `req.nextUrl.origin + /wallet?funded=true` — origin-relative so the redirect always lands on the same deployment
+
+The `callbackUrl` passed to Paystack is `req.nextUrl.origin + /api/payments/callback` (passed from route handler → service). Never derive it from `NEXT_PUBLIC_APP_URL` or `VERCEL_URL` — those won't match the deployment the user's session is on.
 
 ### Provider abstractions
 
 Two env-controlled abstractions exist for future swap-out:
 - `BUNDLE_PROVIDER=manual` — no-op fulfillment today; will become `api` when third-party integration lands
-- `PAYMENT_PROVIDER=stub` — stub today; will become `hubtel` or `paystack`
+- `PAYMENT_PROVIDER=stub` — manual/stub; `paystack` activates Paystack integration
 
 Switching provider = implement the new provider file + change one env var. Zero changes to services.
 
