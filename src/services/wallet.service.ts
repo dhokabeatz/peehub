@@ -59,7 +59,7 @@ export class WalletService {
       // Fetch user email — required by Paystack. Users who registered with
       // phone only get a synthetic placeholder accepted by Paystack test mode.
       const user = await findUserById(userId)
-      const email = user?.email ?? `${userId.slice(0, 8)}@peehub.wallet`
+      const email = user?.email ?? `${userId.slice(0, 8)}@peehub.hdolabs.com`
 
       const paystackResult = await initializeTransaction({
         email,

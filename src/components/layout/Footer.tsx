@@ -14,14 +14,24 @@ export function Footer() {
           <p className="text-xs text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="text-gray-400">Need help?</span>
             {phone && (
-              <a
-                href={`tel:${phone.replace(/\s/g, '')}`}
-                className="text-blue-600 hover:text-blue-700 hover:underline transition-colors"
-              >
-                {phone}
-              </a>
+              <>
+                <a
+                  href={`tel:${phone.replace(/\s/g, '')}`}
+                  className="text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                >
+                  {phone}
+                </a>
+                <a
+                  href={`https://wa.me/${phone.replace(/[\s+]/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-600 hover:text-green-700 hover:underline transition-colors"
+                >
+                  WhatsApp
+                </a>
+              </>
             )}
-            {phone && email && (
+            {email && (
               <span className="text-gray-300 hidden sm:inline">·</span>
             )}
             {email && (
