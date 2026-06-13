@@ -6,65 +6,65 @@ Ordered by real implementation sequence.
 
 ## Phase 0: Project Setup
 
-- [ ] Initialize Next.js 14 project with TypeScript + Tailwind
-- [ ] Configure Prisma + PostgreSQL connection
-- [ ] Define Prisma schema
-- [ ] Run initial migration
-- [ ] Set up folder structure
-- [ ] Create `.env.example`
+- [x] Initialize Next.js 14 project with TypeScript + Tailwind
+- [x] Configure Prisma + PostgreSQL connection
+- [x] Define Prisma schema
+- [x] Run initial migration
+- [x] Set up folder structure
+- [x] Create `.env.example`
 
 ---
 
 ## Phase 1: Authentication Core
 
-- [ ] User registration
-- [ ] User login with email-or-phone + password
-- [ ] JWT auth middleware
-- [ ] Admin role guard
-- [ ] Logout
+- [x] User registration
+- [x] User login with email-or-phone + password
+- [x] JWT auth middleware
+- [x] Admin role guard
+- [x] Logout
 
 ### Later in auth
-- [ ] Refresh token flow
+- [x] Refresh token flow
 - [ ] Password reset
 
 ---
 
 ## Phase 2: Bundles & Networks Core
 
-- [ ] Seed networks (MTN, Telecel, AirtelTigo with prefixes)
-- [ ] Seed sample bundles per network
-- [ ] Public bundle listing API (filter by network)
-- [ ] Network auto-detection utility by phone prefix
+- [x] Seed networks (MTN, Telecel, AirtelTigo with prefixes)
+- [x] Seed sample bundles per network
+- [x] Public bundle listing API (filter by network)
+- [x] Network auto-detection utility by phone prefix
 - [ ] Admin bundle management (add/edit/deactivate)
 
 ---
 
 ## Phase 3: Wallet Core
 
-- [ ] Auto-create wallet on registration
-- [ ] Wallet balance display
-- [ ] Wallet transaction history
-- [ ] Atomic deduction helper
-- [ ] Admin manual wallet adjustment for MVP/testing
+- [x] Auto-create wallet on registration
+- [x] Wallet balance display
+- [x] Wallet transaction history
+- [x] Atomic deduction helper
+- [x] Admin manual wallet adjustment for MVP/testing
 
 ---
 
 ## Phase 4: Order System Core
 
-- [ ] Order creation flow
-- [ ] Wallet balance validation before order
-- [ ] Atomic deduct wallet + create order in one transaction
-- [ ] Order history page
-- [ ] Order detail page with status tracking
+- [x] Order creation flow
+- [x] Wallet balance validation before order
+- [x] Atomic deduct wallet + create order in one transaction
+- [x] Order history page
+- [x] Order detail page with status tracking
 
 ---
 
 ## Phase 5: Admin Dashboard
 
-- [ ] Admin dashboard overview
-- [ ] All orders table
-- [ ] Order detail + status update form
-- [ ] Admin note support
+- [x] Admin dashboard overview
+- [x] All orders table
+- [x] Order detail + status update form
+- [x] Admin note support
 - [ ] All users list
 - [ ] All wallet transactions list
 
@@ -72,31 +72,34 @@ Ordered by real implementation sequence.
 
 ## Phase 6: Wallet Funding Integration
 
-- [ ] Wallet funding initiation flow
-- [ ] Payment transaction record creation
-- [ ] Payment webhook handler
-- [ ] Credit wallet on verified success
-- [ ] Idempotency protection for webhook retries
+- [x] Wallet funding initiation flow
+- [x] Payment transaction record creation
+- [x] Payment webhook handler (Paystack — HMAC verified, primary path)
+- [x] Credit wallet on verified success
+- [x] Idempotency protection for webhook retries (SELECT FOR UPDATE + unique reference)
+- [x] Paystack hosted checkout integration (PAYMENT_PROVIDER=paystack)
 
 ---
 
 ## Phase 7: UX, Validation, and Hardening
 
-- [ ] Zod validation on all API routes
-- [ ] Central error handling
-- [ ] Toast/banner feedback
-- [ ] Loading/empty states
+- [x] Zod validation on all API routes
+- [x] Central error handling
+- [x] Toast/banner feedback
+- [x] Loading/empty states
 - [ ] Basic audit logging
 
 ---
 
 ## Phase 8: Deploy & Verify
 
-- [ ] Deploy to Vercel
-- [ ] Configure managed PostgreSQL
-- [ ] Configure environment variables
-- [ ] Smoke test all critical flows
-- [ ] Fix launch issues
+- [x] Deploy to Vercel
+- [x] Configure managed PostgreSQL
+- [x] Configure environment variables
+- [x] Smoke test all critical flows
+- [x] Fix launch issues
+
+> Both `dev.peehub.hdolabs.com` (preview) and `peehub.hdolabs.com` (production) are live.
 
 ---
 

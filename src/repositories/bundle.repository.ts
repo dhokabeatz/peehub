@@ -20,6 +20,25 @@ const BUNDLE_SELECT = {
   isActive: true,
 } as const
 
+const ADMIN_BUNDLE_SELECT = {
+  ...BUNDLE_SELECT,
+  createdAt: true,
+  updatedAt: true,
+  network: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      isActive: true,
+    },
+  },
+  _count: {
+    select: {
+      orders: true,
+    },
+  },
+} as const
+
 // ─── Network queries ──────────────────────────────────────────────────────────
 
 export async function getAllNetworks() {
@@ -33,6 +52,13 @@ export async function getAllNetworks() {
 export async function getNetworkByCode(code: string) {
   return db.network.findUnique({
     where: { code: code.toUpperCase() },
+    select: NETWORK_SELECT,
+  })
+}
+
+export async function getNetworkById(id: string) {
+  return db.network.findUnique({
+    where: { id },
     select: NETWORK_SELECT,
   })
 }
@@ -59,6 +85,20 @@ export async function getBundleById(id: string) {
   return db.bundle.findUnique({
     where: { id },
     select: { ...BUNDLE_SELECT, network: { select: { name: true, code: true } } },
+  })
+}
+
+export async function getAdminBundles() {
+  return db.bundle.findMany({
+    orderBy: [{ network: { name: 'asc' } }, { price: 'asc' }, { createdAt: 'desc' }],
+    select: ADMIN_BUNDLE_SELECT,
+  })
+}
+
+export async function getAdminBundleById(id: string) {
+  return db.bundle.findUnique({
+    where: { id },
+    select: ADMIN_BUNDLE_SELECT,
   })
 }
 

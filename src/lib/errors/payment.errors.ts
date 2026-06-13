@@ -22,3 +22,10 @@ export class WalletFundingError extends Error {
     super(message)
   }
 }
+
+export class PaystackVerificationError extends Error {
+  readonly name = 'PaystackVerificationError'
+  constructor(message: string) {
+    super(message)
+  }
+}

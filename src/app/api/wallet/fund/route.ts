@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await walletService.fundWallet(userId, parsed.data)
+    const result = await walletService.fundWallet(userId, parsed.data, req.nextUrl.origin)
     return NextResponse.json(result, { status: 201 })
   } catch (err) {
     if (err instanceof WalletNotFoundError) {

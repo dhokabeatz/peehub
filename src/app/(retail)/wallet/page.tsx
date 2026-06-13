@@ -7,11 +7,20 @@ import { Button } from '@/components/ui/Button'
 
 export const metadata = { title: 'Wallet · PeeHub' }
 
-export default async function WalletPage() {
+const isPaystack = process.env.PAYMENT_PROVIDER === 'paystack'
+
+interface PageProps {
+  searchParams: Promise<{ funded?: string }>
+}
+
+export default async function WalletPage({ searchParams }: PageProps) {
   const session = await getServerSession()
   if (!session) redirect('/login')
 
-  const wallet = await walletService.getBalance(session.id)
+  const [wallet, { funded }] = await Promise.all([
+    walletService.getBalance(session.id),
+    searchParams,
+  ])
 
   return (
     <div className="flex flex-col gap-6">
@@ -19,6 +28,13 @@ export default async function WalletPage() {
         <h1 className="text-xl font-bold text-gray-900">Wallet</h1>
         <p className="text-sm text-gray-500 mt-0.5">Manage your wallet balance</p>
       </div>
+
+      {funded === 'true' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800 flex items-center gap-2">
+          <span className="text-green-600 text-base">✓</span>
+          <p><strong>Payment successful.</strong> Your wallet has been credited.</p>
+        </div>
+      )}
 
       {wallet ? (
         <WalletBalanceCard wallet={wallet} showFundButton={false} />
@@ -37,13 +53,15 @@ export default async function WalletPage() {
         </Link>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
-        <p className="font-medium mb-0.5">Manual top-up process</p>
-        <p>
-          Fund your wallet by initiating a top-up and sharing the reference with the admin.
-          Balances are credited once payment is confirmed.
-        </p>
-      </div>
+      {!isPaystack && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+          <p className="font-medium mb-0.5">Manual top-up process</p>
+          <p>
+            Fund your wallet by initiating a top-up and sharing the reference with the admin.
+            Balances are credited once payment is confirmed.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

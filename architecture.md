@@ -83,8 +83,10 @@ Authentication is **stateless JWT** with a refresh token rotation pattern. Token
 
 | Token | Expiry | Cookie flags | Cookie path | Storage (server) |
 |---|---|---|---|---|
-| `access_token` | 15 min | `HttpOnly; Secure; SameSite=Strict` | `/` | Not stored |
+| `access_token` | 15 min | `HttpOnly; Secure; SameSite=Lax` | `/` | Not stored |
 | `refresh_token` | 30 days | `HttpOnly; Secure; SameSite=Strict` | `/api/auth` | `refresh_tokens` table (bcrypt-hashed) |
+
+> `access_token` uses `SameSite=Lax` (not Strict) so the browser sends it on cross-site top-level GET navigations — required for payment provider callbacks (Paystack → our domain). `SameSite=Strict` caused users to be logged out after completing payment. `SameSite=Lax` still blocks cross-site POST/fetch requests. See ADR-011.
 
 > `Path=/api/auth` on the refresh token cookie means the browser only sends it to `/api/auth/*` — it is never attached to wallet, order, or admin requests.
 
@@ -680,8 +682,9 @@ POST   /api/auth/reset-password/request      -- send reset token to email/phone
 POST   /api/auth/reset-password/confirm      -- token + new password
 
 GET    /api/wallet                    -- get balance + recent transactions
-POST   /api/wallet/fund               -- initiate payment
-POST   /api/payments/webhook          -- payment provider callback
+POST   /api/wallet/fund               -- initiate payment (returns authorization_url for Paystack)
+GET    /api/payments/callback         -- Paystack UX redirect after checkout (public — no auth)
+POST   /api/payments/webhook          -- Paystack event handler, primary confirmation path (public — HMAC verified)
 
 GET    /api/bundles                   -- list active bundles (optionally ?network=mtn)
 GET    /api/bundles/networks          -- list active networks
@@ -802,9 +805,11 @@ peehub/
 │   │   │   ├── provider.ts         # IBundleProvider interface
 │   │   │   ├── manual.provider.ts  # fulfillOrder() no-op — admin handles externally
 │   │   │   └── api.provider.ts     # (stub) Third-party API fulfillment
-│   │   ├── payment/                # No next/* imports
-│   │   │   ├── provider.ts         # IPaymentProvider interface
-│   │   │   └── stub.provider.ts    # Returns mock paymentUrl for MVP
+│   │   ├── payments/               # No next/* imports
+│   │   │   ├── paystack.ts         # initializeTransaction, verifyTransaction, verifyWebhookSignature (HMAC-SHA512)
+│   │   │   └── (stub logic lives in wallet.service.ts for the manual/stub path)
+│   │   ├── errors/
+│   │   │   └── payment.errors.ts   # PaymentNotFoundError, PaymentAlreadyProcessedError, PaystackVerificationError
 │   │   └── utils/
 │   │       ├── phone.ts            # Identifier detection + normalization
 │   │       └── reference.ts        # Unique reference generator
@@ -816,7 +821,7 @@ peehub/
 │   ├── components/
 │   │   ├── ui/                     # Primitive: Button, Input, Badge, Modal
 │   │   ├── forms/                  # OrderForm, FundWalletForm, LoginForm
-│   │   ├── layout/                 # Navbar, Sidebar, DashboardShell
+│   │   ├── layout/                 # DashboardShell, AdminShell, Footer
 │   │   └── shared/                 # OrderStatusBadge, TransactionRow, BundleCard
 │   │
 │   ├── types/
@@ -842,7 +847,7 @@ peehub/
 - **Passwords**: bcrypt with cost factor ≥ 12. `password_hash` must be non-null for `auth_provider = 'local'`; null only for future Cognito users.
 - **Access tokens**: HS256 JWT signed by `token.signAccessToken()` (jose), 15-minute expiry. Payload: `{ sub: userId, role, iat, exp }`. Verified by `token.verifyAccessToken()` in `src/middleware.ts`.
 - **Refresh tokens**: random 64-byte value, bcrypt-hashed before storage in `refresh_tokens` table. Raw token is never persisted. Rotated on every use — old row marked `revoked=true`, new row inserted. A second use of a revoked token is detectable.
-- **Cookie transport**: both tokens are issued as HttpOnly Secure cookies. `access_token` has `Path=/` and `Max-Age=900`. `refresh_token` has `Path=/api/auth` and `Max-Age=2592000`. The `Secure` flag is set in production (`NODE_ENV=production`); omitted in local dev over HTTP. `SameSite=Strict` on both.
+- **Cookie transport**: both tokens are issued as HttpOnly Secure cookies. `access_token` has `Path=/`, `Max-Age=900`, and `SameSite=Lax`. `refresh_token` has `Path=/api/auth`, `Max-Age=2592000`, and `SameSite=Strict`. The `Secure` flag is set in production (`COOKIE_SECURE=true`); omitted in local dev over HTTP. `access_token` is `Lax` (not `Strict`) to survive cross-site top-level GET redirects from payment providers like Paystack — see ADR-011.
 - **No tokens in JS**: `HttpOnly` ensures tokens are never accessible via `document.cookie` or any client-side JS. XSS cannot steal them.
 - **API client fallback**: edge middleware accepts `Authorization: Bearer <token>` if the `access_token` cookie is absent, enabling non-browser clients without weakening browser security.
 - **Route protection**: `src/middleware.ts` (edge runtime) intercepts all `/(dashboard|admin|api)/*` paths, reads `access_token` cookie (or Bearer header), calls `token.verifyAccessToken()`, and injects `x-user-id` and `x-user-role` headers. Route handlers read those headers; they never re-verify the token.
@@ -877,8 +882,12 @@ BUNDLE_PROVIDER=manual              # manual | api
 BUNDLE_API_BASE_URL=               # leave blank until third-party is onboarded
 BUNDLE_API_KEY=
 
-# Payment provider (stubbed for MVP)
-PAYMENT_PROVIDER=hubtel
-PAYMENT_API_KEY=
-PAYMENT_WEBHOOK_SECRET=
+# Payment provider
+PAYMENT_PROVIDER=paystack            # stub | paystack
+PAYSTACK_SECRET_KEY=sk_live_...      # HMAC signing + API calls
+# NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=   # client-side (safe to expose)
+
+# Support contact (shown in app footer)
+NEXT_PUBLIC_SUPPORT_PHONE=
+NEXT_PUBLIC_SUPPORT_EMAIL=
 ```

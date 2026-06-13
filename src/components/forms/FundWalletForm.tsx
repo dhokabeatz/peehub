@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import type { FundWalletResult } from '@/types/wallet'
@@ -8,10 +8,22 @@ import type { FundWalletResult } from '@/types/wallet'
 const PRESET_AMOUNTS = [10, 20, 50, 100, 200]
 
 export function FundWalletForm() {
-  const [amount, setAmount] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<FundWalletResult | null>(null)
+  const [amount, setAmount]           = useState('')
+  const [error, setError]             = useState('')
+  const [loading, setLoading]         = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
+  const [result, setResult]           = useState<FundWalletResult | null>(null)
+
+  // ── Paystack redirect ───────────────────────────────────────────────────────
+  // When the API returns an authorization_url, show a brief loading state then
+  // redirect. Doing this in a useEffect ensures the state update has rendered
+  // (so the user sees "Redirecting…") before the navigation fires.
+  useEffect(() => {
+    if (result?.authorization_url) {
+      setRedirecting(true)
+      window.location.href = result.authorization_url
+    }
+  }, [result])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,7 +47,7 @@ export function FundWalletForm() {
         body: JSON.stringify({ amount: parsed }),
       })
 
-      const data = await res.json()
+      const data = await res.json() as FundWalletResult & { error?: string; issues?: Array<{ message: string }> }
 
       if (res.ok) {
         setResult(data)
@@ -43,7 +55,7 @@ export function FundWalletForm() {
       }
 
       if (data.issues) {
-        setError(data.issues.map((i: { message: string }) => i.message).join(', '))
+        setError(data.issues.map((i) => i.message).join(', '))
       } else {
         setError(data.error ?? 'Failed to initiate top-up. Please try again.')
       }
@@ -54,7 +66,19 @@ export function FundWalletForm() {
     }
   }
 
-  if (result) {
+  // ── Paystack redirect loading screen ─────────────────────────────────────────
+  if (redirecting || (result?.authorization_url && !error)) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-6">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-gray-600 font-medium">Redirecting to Paystack checkout…</p>
+        <p className="text-xs text-gray-400">Please do not close this page.</p>
+      </div>
+    )
+  }
+
+  // ── Manual top-up success screen ─────────────────────────────────────────────
+  if (result && !result.authorization_url) {
     return (
       <div className="flex flex-col gap-4">
         <div className="bg-green-50 border border-green-200 rounded-lg p-5 flex flex-col gap-2">
@@ -89,6 +113,7 @@ export function FundWalletForm() {
     )
   }
 
+  // ── Fund form ─────────────────────────────────────────────────────────────────
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* Preset amounts */}
@@ -133,7 +158,7 @@ export function FundWalletForm() {
       )}
 
       <Button type="submit" loading={loading} className="w-full">
-        Initiate Top-up
+        {loading ? 'Processing…' : 'Fund Wallet'}
       </Button>
     </form>
   )

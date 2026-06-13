@@ -19,7 +19,7 @@ function accessCookieOptions(): CookieOptions {
   return {
     httpOnly: true,
     secure: COOKIE_SECURE,
-    sameSite: 'strict',
+    sameSite: 'lax', // lax (not strict) so the cookie is sent after cross-site redirects (e.g. Paystack → our callback)
     path: '/',
     maxAge: 60 * 15, // 15 minutes
   }

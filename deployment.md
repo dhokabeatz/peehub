@@ -34,10 +34,14 @@ BUNDLE_PROVIDER=manual
 # BUNDLE_API_BASE_URL=
 # BUNDLE_API_KEY=
 
-# Payment provider (finalize before launch)
-PAYMENT_PROVIDER=hubtel
-PAYMENT_API_KEY=
-PAYMENT_WEBHOOK_SECRET=
+# Payment provider
+PAYMENT_PROVIDER=paystack          # stub | paystack
+PAYSTACK_SECRET_KEY=sk_live_...    # from Paystack dashboard → Settings → API Keys
+# NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY= # client-side key (safe to expose)
+
+# Support contact — shown in app footer
+NEXT_PUBLIC_SUPPORT_PHONE=         # e.g. +233 XX XXX XXXX
+NEXT_PUBLIC_SUPPORT_EMAIL=         # e.g. support@peehub.com
 ```
 
 ---
