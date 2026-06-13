@@ -15,6 +15,7 @@ import {
   PaymentNotFoundError,
   PaymentAlreadyProcessedError,
   PaystackVerificationError,
+  ManualPaymentConfirmationNotAllowedError,
 } from '@/lib/errors/payment.errors'
 
 // No Next.js imports — framework-free and unit-testable.
@@ -144,11 +145,17 @@ export class WalletService {
     await this.confirmFunding(reference)
   }
 
-  async confirmFunding(reference: string) {
+  async confirmFunding(
+    reference: string,
+    options?: { allowedProviders?: string[] },
+  ) {
     // Pre-check: fast-fail for non-pending payments before acquiring locks.
     // The real guard happens inside the transaction — this is just an optimisation.
     const payment = await getPaymentByReference(reference)
     if (!payment) throw new PaymentNotFoundError()
+    if (options?.allowedProviders && !options.allowedProviders.includes(payment.provider)) {
+      throw new ManualPaymentConfirmationNotAllowedError(payment.provider)
+    }
     if (payment.status !== 'pending') throw new PaymentAlreadyProcessedError(payment.status)
 
     // Generate the wallet transaction reference outside the transaction.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { authService } from '@/services/auth.service'
 import { setAuthCookies } from '@/lib/auth/cookies'
+import { consumeRateLimit, getRequestIp } from '@/lib/security/rate-limit'
 
 const registerSchema = z
   .object({
@@ -16,6 +17,22 @@ const registerSchema = z
   })
 
 export async function POST(req: NextRequest) {
+  const limiter = consumeRateLimit({
+    bucket: 'auth-register',
+    key: `ip:${getRequestIp(req)}`,
+    limit: 5,
+    windowMs: 60_000,
+  })
+  if (!limiter.allowed) {
+    return NextResponse.json(
+      { error: 'Too many registration attempts. Please try again later.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(limiter.retryAfterSeconds) },
+      },
+    )
+  }
+
   let body: unknown
   try {
     body = await req.json()

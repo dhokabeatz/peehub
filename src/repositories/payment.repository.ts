@@ -2,6 +2,26 @@ import { db, type PrismaTransactionClient } from '@/lib/db'
 import type { Decimal } from '@prisma/client/runtime/library'
 import type { TransactionStatus } from '@prisma/client'
 
+const ADMIN_PAYMENT_SELECT = {
+  id: true,
+  userId: true,
+  walletId: true,
+  amount: true,
+  provider: true,
+  providerReference: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  user: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      phone: true,
+    },
+  },
+} as const
+
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
 export async function getPaymentByReference(reference: string) {
@@ -18,6 +38,39 @@ export async function getPaymentByReference(reference: string) {
       createdAt: true,
       updatedAt: true,
     },
+  })
+}
+
+export async function getAdminPaymentMetrics() {
+  const [pendingPaymentCount, walletFundingValue] = await Promise.all([
+    db.paymentTransaction.count({
+      where: { status: 'pending' },
+    }),
+    db.paymentTransaction.aggregate({
+      where: { status: 'success' },
+      _sum: { amount: true },
+    }),
+  ])
+
+  return {
+    pendingPaymentCount,
+    totalWalletFundingValue: walletFundingValue._sum.amount,
+  }
+}
+
+export async function getAdminPayments(filter?: {
+  status?: TransactionStatus
+  provider?: 'paystack' | 'manual'
+  take?: number
+}) {
+  return db.paymentTransaction.findMany({
+    where: {
+      ...(filter?.status ? { status: filter.status } : {}),
+      ...(filter?.provider ? { provider: filter.provider } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: filter?.take ?? 100,
+    select: ADMIN_PAYMENT_SELECT,
   })
 }
 

@@ -1,5 +1,9 @@
 import Link from 'next/link'
 import { bundleService } from '@/services/bundle.service'
+import { Badge } from '@/components/ui/Badge'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { AdminEmptyState } from '@/components/admin/AdminEmptyState'
+import { AdminTableShell } from '@/components/admin/AdminTableShell'
 export const metadata = { title: 'Bundles · Admin · PeeHub' }
 
 function formatMoney(price: string) {
@@ -15,28 +19,27 @@ export default async function AdminBundlesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Bundles</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Manage bundle pricing, validity, size, and activation state.
-          </p>
-        </div>
-        <Link
-          href="/admin/bundles/new"
-          className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-        >
-          Create Bundle
-        </Link>
-      </div>
+      <AdminPageHeader
+        title="Bundles"
+        description="Manage bundle pricing, validity, size, and activation state."
+        meta={`${bundles.length} bundle${bundles.length !== 1 ? 's' : ''} available`}
+        actions={
+          <Link
+            href="/admin/bundles/new"
+            className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+          >
+            Create Bundle
+          </Link>
+        }
+      />
 
       {bundles.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center text-sm text-gray-400">
-          No bundles found.
-        </div>
+        <AdminEmptyState
+          title="No bundles found"
+          description="Create your first data bundle to make it available for buyers."
+        />
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+        <AdminTableShell>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-left">
@@ -67,16 +70,9 @@ export default async function AdminBundlesPage() {
                       {formatMoney(bundle.price)}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={[
-                          'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
-                          bundle.isActive
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-600',
-                        ].join(' ')}
-                      >
+                      <Badge variant={bundle.isActive ? 'success' : 'muted'}>
                         {bundle.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-4 py-3 text-gray-700">
                       {bundle.orderCount}
@@ -87,17 +83,16 @@ export default async function AdminBundlesPage() {
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/admin/bundles/${bundle.id}`}
-                        className="text-blue-600 hover:underline text-xs font-medium"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
                       >
-                        Manage →
+                        Manage
                       </Link>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
+        </AdminTableShell>
       )}
     </div>
   )

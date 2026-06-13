@@ -7,6 +7,7 @@ import type { UserProfile } from '@/types/user'
 import { Footer } from '@/components/layout/Footer'
 
 const adminNavLinks = [
+  { href: '/admin', label: 'Dashboard', icon: GridIcon },
   { href: '/admin/bundles', label: 'Bundles', icon: LayersIcon },
   { href: '/admin/users', label: 'Users', icon: UsersIcon },
   { href: '/admin/orders', label: 'Orders',  icon: ListIcon   },
@@ -55,7 +56,10 @@ export function AdminShell({ user, children }: AdminShellProps) {
 
         <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
           {adminNavLinks.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + '/')
+            const active =
+              href === '/admin'
+                ? pathname === '/admin'
+                : pathname === href || pathname.startsWith(href + '/')
             return (
               <Link
                 key={href}
@@ -119,6 +123,14 @@ function WalletIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+    </svg>
+  )
+}
+
+function GridIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v6H4V4zM14 4h6v6h-6V4zM4 14h6v6H4v-6zM14 14h6v6h-6v-6z" />
     </svg>
   )
 }

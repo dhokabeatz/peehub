@@ -3,6 +3,7 @@ import { verifyWebhookSignature } from '@/lib/payments/paystack'
 import { walletService } from '@/services/wallet.service'
 import {
   PaymentAlreadyProcessedError,
+  PaymentNotFoundError,
   PaystackVerificationError,
 } from '@/lib/errors/payment.errors'
 
@@ -72,15 +73,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
-    if (err instanceof PaystackVerificationError) {
+    if (err instanceof PaystackVerificationError || err instanceof PaymentNotFoundError) {
       // Validation failed (amount mismatch, wrong currency, etc.) — log for investigation.
       // Return 200 so Paystack does not retry; this is a data anomaly, not a transient error.
       console.error('[POST /api/payments/webhook] Verification failed:', err.message, { reference })
       return NextResponse.json({ received: true })
     }
 
-    // Unexpected error — log it. Still return 200 to avoid Paystack retries flooding logs.
+    // Unexpected/transient error — return 5xx so Paystack retries.
     console.error('[POST /api/payments/webhook] Unexpected error for reference', reference, err)
+    return NextResponse.json({ error: 'Temporary processing failure' }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })

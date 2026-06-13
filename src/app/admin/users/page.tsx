@@ -1,5 +1,9 @@
 import Link from 'next/link'
 import { userService } from '@/services/user.service'
+import { Badge } from '@/components/ui/Badge'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { AdminEmptyState } from '@/components/admin/AdminEmptyState'
+import { AdminTableShell } from '@/components/admin/AdminTableShell'
 
 export const metadata = { title: 'Users · Admin · PeeHub' }
 
@@ -18,20 +22,19 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Users</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {users.length} user{users.length !== 1 ? 's' : ''} registered
-        </p>
-      </div>
+      <AdminPageHeader
+        title="Users"
+        description="View registered customers, account status, and wallet summaries."
+        meta={`${users.length} user${users.length !== 1 ? 's' : ''} registered`}
+      />
 
       {users.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center text-sm text-gray-400">
-          No users found.
-        </div>
+        <AdminEmptyState
+          title="No users found"
+          description="Registered users will appear here once accounts are created."
+        />
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+        <AdminTableShell>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-left">
@@ -53,16 +56,9 @@ export default async function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-700 capitalize">{user.role}</td>
                     <td className="px-4 py-3">
-                      <span
-                        className={[
-                          'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
-                          user.isActive
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-600',
-                        ].join(' ')}
-                      >
+                      <Badge variant={user.isActive ? 'success' : 'muted'}>
                         {user.isActive ? 'Active' : 'Suspended'}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-4 py-3 text-gray-700">
                       {user.walletBalance ? `GHS ${user.walletBalance}` : '—'}
@@ -74,17 +70,16 @@ export default async function AdminUsersPage() {
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/admin/users/${user.id}`}
-                        className="text-blue-600 hover:underline text-xs font-medium"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
                       >
-                        View →
+                        View
                       </Link>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
+        </AdminTableShell>
       )}
     </div>
   )

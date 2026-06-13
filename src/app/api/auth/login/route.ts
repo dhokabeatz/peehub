@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { authService } from '@/services/auth.service'
 import { setAuthCookies } from '@/lib/auth/cookies'
+import { consumeRateLimit, getRequestIp } from '@/lib/security/rate-limit'
 
 const loginSchema = z.object({
   identifier: z.string().min(1, 'Email or phone is required'),
@@ -9,6 +10,22 @@ const loginSchema = z.object({
 })
 
 export async function POST(req: NextRequest) {
+  const limiter = consumeRateLimit({
+    bucket: 'auth-login',
+    key: `ip:${getRequestIp(req)}`,
+    limit: 10,
+    windowMs: 60_000,
+  })
+  if (!limiter.allowed) {
+    return NextResponse.json(
+      { error: 'Too many login attempts. Please try again later.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(limiter.retryAfterSeconds) },
+      },
+    )
+  }
+
   let body: unknown
   try {
     body = await req.json()

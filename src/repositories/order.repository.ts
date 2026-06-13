@@ -117,6 +117,38 @@ export async function getOrderByIdAdmin(orderId: string) {
   })
 }
 
+export async function getAdminOrderMetrics() {
+  const [totalOrders, countsByStatus, completedValue] = await Promise.all([
+    db.order.count(),
+    db.order.groupBy({
+      by: ['status'],
+      _count: { status: true },
+    }),
+    db.order.aggregate({
+      where: { status: 'completed' },
+      _sum: { amount: true },
+    }),
+  ])
+
+  const statusCounts: Record<OrderStatus, number> = {
+    pending: 0,
+    processing: 0,
+    completed: 0,
+    failed: 0,
+    cancelled: 0,
+  }
+
+  for (const row of countsByStatus) {
+    statusCounts[row.status] = row._count.status
+  }
+
+  return {
+    totalOrders,
+    ...statusCounts,
+    totalCompletedOrderValue: completedValue._sum.amount,
+  }
+}
+
 // ─── Admin write ──────────────────────────────────────────────────────────────
 
 export async function updateOrderStatus(

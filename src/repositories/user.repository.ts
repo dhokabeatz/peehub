@@ -134,6 +134,20 @@ export async function getAdminUserById(id: string) {
   })
 }
 
+export async function getAdminUserMetrics() {
+  const [totalUsers, activeUsers, suspendedUsers] = await Promise.all([
+    db.user.count(),
+    db.user.count({ where: { isActive: true } }),
+    db.user.count({ where: { isActive: false } }),
+  ])
+
+  return {
+    totalUsers,
+    activeUsers,
+    suspendedUsers,
+  }
+}
+
 // ─── Admin writes ────────────────────────────────────────────────────────────
 
 export async function updateUserActiveStatus(id: string, isActive: boolean) {

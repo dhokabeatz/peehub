@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAdmin } from '@/lib/auth/admin.guard'
 import { walletService } from '@/services/wallet.service'
-import { PaymentNotFoundError, PaymentAlreadyProcessedError } from '@/lib/errors/payment.errors'
+import {
+  PaymentNotFoundError,
+  PaymentAlreadyProcessedError,
+  ManualPaymentConfirmationNotAllowedError,
+} from '@/lib/errors/payment.errors'
+import { consumeRateLimit, getRequestIp } from '@/lib/security/rate-limit'
 
 const confirmSchema = z.object({
   reference: z.string().min(1, 'reference is required'),
@@ -12,6 +17,23 @@ const confirmSchema = z.object({
 export async function POST(req: NextRequest) {
   const forbidden = requireAdmin(req)
   if (forbidden) return forbidden
+
+  const userId = req.headers.get('x-user-id')
+  const limiter = consumeRateLimit({
+    bucket: 'admin-wallet-confirm',
+    key: userId ? `user:${userId}` : `ip:${getRequestIp(req)}`,
+    limit: 10,
+    windowMs: 60_000,
+  })
+  if (!limiter.allowed) {
+    return NextResponse.json(
+      { error: 'Too many confirmation attempts. Please try again later.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(limiter.retryAfterSeconds) },
+      },
+    )
+  }
 
   let body: unknown
   try {
@@ -29,7 +51,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const payment = await walletService.confirmFunding(parsed.data.reference)
+    const payment = await walletService.confirmFunding(parsed.data.reference, {
+      allowedProviders: ['manual', 'stub'],
+    })
     return NextResponse.json({ payment })
   } catch (err) {
     // 404 — reference does not exist
@@ -50,6 +74,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: err.message, paymentStatus: err.status },
         { status: 422 },
+      )
+    }
+    if (err instanceof ManualPaymentConfirmationNotAllowedError) {
+      return NextResponse.json(
+        { error: err.message, provider: err.provider },
+        { status: 409 },
       )
     }
 

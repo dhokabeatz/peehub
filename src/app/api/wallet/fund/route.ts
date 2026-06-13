@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { walletService } from '@/services/wallet.service'
 import { WalletNotFoundError } from '@/lib/errors/order.errors'
+import { consumeRateLimit, getRequestIp } from '@/lib/security/rate-limit'
 
 const fundWalletSchema = z.object({
   amount: z
@@ -15,6 +16,22 @@ const fundWalletSchema = z.object({
 export async function POST(req: NextRequest) {
   const userId = req.headers.get('x-user-id')
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const limiter = consumeRateLimit({
+    bucket: 'wallet-fund',
+    key: userId ? `user:${userId}` : `ip:${getRequestIp(req)}`,
+    limit: 10,
+    windowMs: 60_000,
+  })
+  if (!limiter.allowed) {
+    return NextResponse.json(
+      { error: 'Too many wallet funding attempts. Please try again later.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(limiter.retryAfterSeconds) },
+      },
+    )
+  }
 
   let body: unknown
   try {

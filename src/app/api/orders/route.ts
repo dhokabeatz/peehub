@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { orderService } from '@/services/order.service'
+import { consumeRateLimit, getRequestIp } from '@/lib/security/rate-limit'
 import {
   InsufficientBalanceError,
   BundleNotFoundError,
@@ -20,6 +21,22 @@ export async function POST(req: NextRequest) {
   // userRole is available for future reseller discount logic (Phase 7)
   // const userRole = req.headers.get('x-user-role') ?? 'retail'
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const limiter = consumeRateLimit({
+    bucket: 'orders-create',
+    key: userId ? `user:${userId}` : `ip:${getRequestIp(req)}`,
+    limit: 15,
+    windowMs: 60_000,
+  })
+  if (!limiter.allowed) {
+    return NextResponse.json(
+      { error: 'Too many order attempts. Please try again later.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(limiter.retryAfterSeconds) },
+      },
+    )
+  }
 
   let body: unknown
   try {

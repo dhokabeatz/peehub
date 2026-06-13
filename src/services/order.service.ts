@@ -155,68 +155,68 @@ export class OrderService {
       throw new InvalidStatusTransitionError(order.status, data.status)
     }
 
-    // ── Non-failed transitions: simple status update, no refund ──────────────
-    if (data.status !== 'failed') {
+    // ── Non-refund transitions: simple status update, no refund ──────────────
+    if (data.status !== 'failed' && data.status !== 'cancelled') {
       return dbUpdateOrderStatus(orderId, { ...data, processedBy: adminId })
     }
 
-    // ── Failed: auto-refund the original debit amount ─────────────────────────
-    //
-    // Design:
-    //   1. Fetch wallet ID before the transaction (only needs the ID; creditWalletTx
-    //      re-reads balance with SELECT FOR UPDATE inside the transaction).
-    //   2. Generate the refund reference outside the transaction — randomBytes must
-    //      not run inside $transaction because a retry would produce a duplicate ref.
-    //   3. Inside $transaction:
-    //        a. Lock the order row (FOR UPDATE) and re-validate transition.
-    //        b. Check refundWalletTransactionId IS NULL — definitive double-refund guard.
-    //        c. Credit the wallet (locks wallet row, updates balance, creates WalletTransaction).
-    //        d. Update order status + link refundWalletTransactionId atomically.
-    //   Everything rolls back if any step throws.
+    return this.refundAndUpdateOrderStatus(
+      orderId,
+      order.userId,
+      {
+        status: data.status,
+        adminNote: data.adminNote,
+        providerReference: data.providerReference,
+      } as {
+        status: 'failed' | 'cancelled'
+        adminNote?: string
+        providerReference?: string
+      },
+      adminId,
+    )
+  }
 
-    const wallet = await getWalletByUserId(order.userId)
+  private async refundAndUpdateOrderStatus(
+    orderId: string,
+    userId: string,
+    data: {
+      status: 'failed' | 'cancelled'
+      adminNote?: string
+      providerReference?: string
+    },
+    adminId: string,
+  ) {
+    const wallet = await getWalletByUserId(userId)
     if (!wallet) throw new WalletNotFoundError()
 
-    // Generate outside $transaction — side effects must not be inside the callback.
     const refundRef = generateReference('RFD')
+    const refundReason = data.status === 'failed' ? 'order_failed' : 'order_cancelled'
 
     return db.$transaction(async (tx) => {
-      // (a) Lock order row — blocks concurrent PATCH on this order.
       const locked = await lockOrderForRefundTx(tx, orderId)
       if (!locked) throw new OrderNotFoundError()
 
-      // Re-validate inside the lock: guards against a concurrent status change
-      // that happened between the pre-check above and acquiring the lock.
       const allowedNow = VALID_TRANSITIONS[locked.status]
-      if (!allowedNow.includes('failed' as OrderStatus)) {
-        throw new InvalidStatusTransitionError(locked.status, 'failed')
+      if (!allowedNow.includes(data.status as OrderStatus)) {
+        throw new InvalidStatusTransitionError(locked.status, data.status)
       }
 
-      // (b) Definitive double-refund guard.
-      //     The row lock ensures no concurrent request can set this between
-      //     our check and our write below.
       if (locked.refundWalletTransactionId !== null) {
         throw new AlreadyRefundedError()
       }
 
-      // (c) Credit wallet — SELECT FOR UPDATE on wallet row, updates balance,
-      //     creates WalletTransaction. WalletTransaction.reference is @unique,
-      //     so a duplicate refundRef would throw a constraint error, not silently succeed.
       const refundTx = await creditWalletTx(
         tx,
         wallet.id,
-        order.userId,
+        userId,
         new Decimal(locked.amount),
         `Refund: order ${orderId.slice(0, 8)}`,
         refundRef,
-        { orderId, reason: 'order_failed' },
+        { orderId, reason: refundReason },
       )
 
-      // (d) Update order status and permanently link the refund transaction.
-      //     refundWalletTransactionId being set is the durable marker that
-      //     this order has been refunded — never cleared, never overwritten.
       return updateOrderStatusTx(tx, orderId, {
-        status: 'failed',
+        status: data.status,
         adminNote: data.adminNote,
         providerReference: data.providerReference,
         processedBy: adminId,

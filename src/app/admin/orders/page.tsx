@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { orderService } from '@/services/order.service'
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { AdminEmptyState } from '@/components/admin/AdminEmptyState'
+import { AdminTableShell } from '@/components/admin/AdminTableShell'
 import type { OrderStatus } from '@/types/order'
 import type { OrderStatus as PrismaOrderStatus } from '@prisma/client'
 
@@ -37,12 +40,11 @@ export default async function AdminOrdersPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">All Orders</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {orders.length} order{orders.length !== 1 ? 's' : ''} found
-        </p>
-      </div>
+      <AdminPageHeader
+        title="Orders"
+        description="Review customer orders and monitor fulfillment status."
+        meta={`${orders.length} order${orders.length !== 1 ? 's' : ''} found`}
+      />
 
       {/* Status filter tabs */}
       <div className="flex flex-wrap gap-1 bg-white border border-gray-200 rounded-lg p-1 w-fit">
@@ -66,12 +68,12 @@ export default async function AdminOrdersPage({ searchParams }: PageProps) {
       </div>
 
       {orders.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl px-6 py-12 text-center text-sm text-gray-400">
-          No orders found{status ? ` with status "${status}"` : ''}.
-        </div>
+        <AdminEmptyState
+          title="No orders found"
+          description={status ? `There are no orders with status "${status}".` : 'Orders will appear here when customers place them.'}
+        />
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+        <AdminTableShell>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-left">
@@ -114,17 +116,16 @@ export default async function AdminOrdersPage({ searchParams }: PageProps) {
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/admin/orders/${order.id}`}
-                        className="text-blue-600 hover:underline text-xs font-medium"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
                       >
-                        View →
+                        View
                       </Link>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
+        </AdminTableShell>
       )}
     </div>
   )

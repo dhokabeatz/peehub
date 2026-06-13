@@ -1,30 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { requireAdmin } from '@/lib/auth/admin.guard'
-import { db } from '@/lib/db'
+import { adminPaymentService } from '@/services/admin-payment.service'
 
-// GET /api/admin/payments?status=pending — list payment transactions for admin review
+const paymentQuerySchema = z.object({
+  status: z.enum(['pending', 'success', 'failed']).optional(),
+  provider: z.enum(['paystack', 'manual']).optional(),
+})
+
+// GET /api/admin/payments — list payment transactions for admin review
 export async function GET(req: NextRequest) {
   const forbidden = requireAdmin(req)
   if (forbidden) return forbidden
 
-  const status = req.nextUrl.searchParams.get('status') ?? 'pending'
-
-  const payments = await db.paymentTransaction.findMany({
-    where: { status: status as 'pending' | 'success' | 'failed' },
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-    select: {
-      id: true,
-      providerReference: true,
-      amount: true,
-      provider: true,
-      status: true,
-      createdAt: true,
-      user: {
-        select: { fullName: true, email: true, phone: true },
-      },
-    },
+  const parsed = paymentQuerySchema.safeParse({
+    status: req.nextUrl.searchParams.get('status') ?? undefined,
+    provider: req.nextUrl.searchParams.get('provider') ?? undefined,
   })
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', issues: parsed.error.issues },
+      { status: 422 },
+    )
+  }
+
+  const payments = await adminPaymentService.listPayments(parsed.data)
 
   return NextResponse.json({ payments })
 }

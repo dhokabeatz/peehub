@@ -29,3 +29,13 @@ export class PaystackVerificationError extends Error {
     super(message)
   }
 }
+
+export class ManualPaymentConfirmationNotAllowedError extends Error {
+  readonly name = 'ManualPaymentConfirmationNotAllowedError'
+  readonly provider: string
+
+  constructor(provider: string) {
+    super(`Manual confirmation is not allowed for provider "${provider}"`)
+    this.provider = provider
+  }
+}
