@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/Footer'
 
 const adminNavLinks = [
   { href: '/admin/bundles', label: 'Bundles', icon: LayersIcon },
+  { href: '/admin/users', label: 'Users', icon: UsersIcon },
   { href: '/admin/orders', label: 'Orders',  icon: ListIcon   },
   { href: '/admin/wallet', label: 'Wallet',  icon: WalletIcon },
 ]
@@ -144,6 +145,17 @@ function LayersIcon({ className }: { className?: string }) {
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4l8 4-8 4-8-4 8-4z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 12l8 4 8-4" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l8 4 8-4" />
+    </svg>
+  )
+}
+
+function UsersIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 7a4 4 0 100-8 4 4 0 000 8z" transform="translate(3 5)" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M23 21v-2a4 4 0 00-3-3.87" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 3.13a4 4 0 010 7.75" />
     </svg>
   )
 }

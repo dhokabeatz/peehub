@@ -26,6 +26,79 @@ const PUBLIC_SELECT = {
   isActive: true,
 } as const
 
+const ADMIN_USER_LIST_SELECT = {
+  ...PUBLIC_SELECT,
+  createdAt: true,
+  wallet: {
+    select: {
+      balance: true,
+    },
+  },
+  _count: {
+    select: {
+      orders: true,
+    },
+  },
+} as const
+
+const ADMIN_USER_DETAIL_SELECT = {
+  ...PUBLIC_SELECT,
+  createdAt: true,
+  updatedAt: true,
+  wallet: {
+    select: {
+      id: true,
+      balance: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  },
+  _count: {
+    select: {
+      orders: true,
+    },
+  },
+  orders: {
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    select: {
+      id: true,
+      recipientPhone: true,
+      amount: true,
+      status: true,
+      createdAt: true,
+      bundle: {
+        select: {
+          name: true,
+          dataSizeMb: true,
+          validityDays: true,
+        },
+      },
+      network: {
+        select: {
+          name: true,
+          code: true,
+        },
+      },
+    },
+  },
+  walletTransactions: {
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    select: {
+      id: true,
+      reference: true,
+      type: true,
+      amount: true,
+      balanceBefore: true,
+      balanceAfter: true,
+      status: true,
+      description: true,
+      createdAt: true,
+    },
+  },
+} as const
+
 // ─── Auth lookups (return DBUser with passwordHash) ───────────────────────────
 
 export async function findUserByEmail(email: string): Promise<DBUser | null> {
@@ -43,6 +116,32 @@ export async function findUserByPhone(phone: string): Promise<DBUser | null> {
 export async function findUserById(id: string): Promise<AuthUser | null> {
   const user = await db.user.findUnique({ where: { id }, select: PUBLIC_SELECT })
   return user ?? null
+}
+
+// ─── Admin reads ─────────────────────────────────────────────────────────────
+
+export async function getAdminUsers() {
+  return db.user.findMany({
+    orderBy: { createdAt: 'desc' },
+    select: ADMIN_USER_LIST_SELECT,
+  })
+}
+
+export async function getAdminUserById(id: string) {
+  return db.user.findUnique({
+    where: { id },
+    select: ADMIN_USER_DETAIL_SELECT,
+  })
+}
+
+// ─── Admin writes ────────────────────────────────────────────────────────────
+
+export async function updateUserActiveStatus(id: string, isActive: boolean) {
+  return db.user.update({
+    where: { id },
+    data: { isActive },
+    select: ADMIN_USER_DETAIL_SELECT,
+  })
 }
 
 // ─── Write ────────────────────────────────────────────────────────────────────
