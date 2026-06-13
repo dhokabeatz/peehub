@@ -7,6 +7,7 @@ import type { UserProfile } from '@/types/user'
 import { Footer } from '@/components/layout/Footer'
 
 const adminNavLinks = [
+  { href: '/admin/bundles', label: 'Bundles', icon: LayersIcon },
   { href: '/admin/orders', label: 'Orders',  icon: ListIcon   },
   { href: '/admin/wallet', label: 'Wallet',  icon: WalletIcon },
 ]
@@ -133,6 +134,16 @@ function MenuIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  )
+}
+
+function LayersIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4l8 4-8 4-8-4 8-4z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 12l8 4 8-4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l8 4 8-4" />
     </svg>
   )
 }
