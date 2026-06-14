@@ -4,8 +4,10 @@ import { getServerSession } from '@/app/_lib/auth'
 import { userService } from '@/services/user.service'
 import { Card } from '@/components/ui/Card'
 import { AdminUserStatusForm } from '@/components/forms/AdminUserStatusForm'
+import { AdminUserDiscountForm } from '@/components/forms/AdminUserDiscountForm'
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge'
 import type { OrderStatus } from '@/types/order'
+import { Badge } from '@/components/ui/Badge'
 
 export const metadata = { title: 'User Detail · Admin · PeeHub' }
 
@@ -46,14 +48,9 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
         </Link>
         <div className="flex items-center gap-3 mt-3">
           <h1 className="text-xl font-bold text-gray-900">User Detail</h1>
-          <span
-            className={[
-              'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
-              user.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600',
-            ].join(' ')}
-          >
+          <Badge variant={user.isActive ? 'success' : 'muted'}>
             {user.isActive ? 'Active' : 'Suspended'}
-          </span>
+          </Badge>
         </div>
         <p className="text-xs text-gray-400 mt-1 font-mono">{user.id}</p>
       </div>
@@ -85,6 +82,14 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
       <Card title="User Controls">
         <AdminUserStatusForm userId={user.id} isActive={user.isActive} isSelf={isSelf} />
+      </Card>
+
+      <Card title="Discount" description="Manage user-specific pricing without changing bundle base prices.">
+        <AdminUserDiscountForm
+          userId={user.id}
+          discount={user.discount}
+          history={user.discountHistory}
+        />
       </Card>
 
       <Card title="Recent Orders" description={`Latest ${user.recentOrders.length} of ${user.orderCount} total orders`}>

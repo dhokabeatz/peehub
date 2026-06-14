@@ -16,6 +16,7 @@ import { generateReference } from '@/lib/utils/reference'
 import { detectNetwork, normalizePhone } from '@/lib/utils/phone'
 import { ROLES } from '@/constants/roles'
 import type { OrderStatus } from '@prisma/client'
+import { calculateDiscountedAmount, userDiscountService } from '@/services/user-discount.service'
 import {
   BundleNotFoundError,
   UnknownNetworkError,
@@ -60,13 +61,20 @@ export class OrderService {
     // ── Step 5: Normalise phone before persisting ────────────────────────────
     const recipientPhone = normalizePhone(input.recipientPhone) ?? input.recipientPhone
 
-    // ── Step 6: Generate reference BEFORE the transaction ───────────────────
+    // ── Step 6: Resolve user-specific pricing ────────────────────────────────
+    const activeDiscount = await userDiscountService.getApplicableDiscountForUser(userId)
+    const pricing = calculateDiscountedAmount({
+      baseAmount: new Decimal(bundle.price),
+      discount: activeDiscount,
+    })
+
+    // ── Step 7: Generate reference BEFORE the transaction ───────────────────
     // Side effects (randomBytes) must not happen inside $transaction — any
     // error inside the callback causes a retry and we'd generate duplicate refs.
     // WTX prefix identifies this as a wallet transaction reference (vs ORD for orders).
     const reference = generateReference('WTX')
 
-    // ── Step 7: Atomic debit + order creation ────────────────────────────────
+    // ── Step 8: Atomic debit + order creation ────────────────────────────────
     // Only DB writes happen inside this block. No external API calls.
     // Order is always created with status=pending — admin fulfils manually.
     const order = await db.$transaction(async (tx) => {
@@ -75,7 +83,7 @@ export class OrderService {
         tx,
         wallet.id,
         userId,
-        bundle.price,
+        pricing.finalAmount,
         `Bundle: ${bundle.name} → ${recipientPhone}`,
         reference,
       )
@@ -87,7 +95,12 @@ export class OrderService {
         networkId: bundle.networkId,
         walletTransactionId: walletTx.id,
         recipientPhone,
-        amount: bundle.price,
+        baseAmount: pricing.baseAmount,
+        discountAmount: pricing.discountAmount,
+        appliedDiscountId: pricing.appliedDiscountId,
+        appliedDiscountType: pricing.appliedDiscountType,
+        appliedDiscountValue: pricing.appliedDiscountValue,
+        amount: pricing.finalAmount,
       })
     })
 
@@ -232,6 +245,20 @@ export class OrderService {
   private serializeOrder(order: any) { // Decimal/Date → string at service boundary
     return {
       ...order,
+      baseAmount:
+        order.baseAmount === null || order.baseAmount === undefined
+          ? null
+          : String(order.baseAmount),
+      discountAmount:
+        order.discountAmount === null || order.discountAmount === undefined
+          ? null
+          : String(order.discountAmount),
+      appliedDiscountId: order.appliedDiscountId ?? null,
+      appliedDiscountType: order.appliedDiscountType ?? null,
+      appliedDiscountValue:
+        order.appliedDiscountValue === null || order.appliedDiscountValue === undefined
+          ? null
+          : String(order.appliedDiscountValue),
       amount: String(order.amount),
       createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt,
       updatedAt: order.updatedAt instanceof Date ? order.updatedAt.toISOString() : order.updatedAt,

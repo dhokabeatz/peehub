@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -41,6 +41,11 @@ enum OrderStatus {
   cancelled
 }
 
+enum DiscountType {
+  percentage
+  fixed
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -63,6 +68,8 @@ model User {
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
   processedOrders     Order[]              @relation("ProcessedBy")
+  userDiscounts       UserDiscount[]       @relation("UserDiscounts")
+  createdUserDiscounts UserDiscount[]      @relation("CreatedUserDiscounts")
 
   @@map("users")
 }
@@ -183,6 +190,11 @@ model Order {
   walletTransactionId       String?     @unique @map("wallet_transaction_id") @db.Uuid
   refundWalletTransactionId String?     @unique @map("refund_wallet_transaction_id") @db.Uuid
   recipientPhone      String      @map("recipient_phone")
+  baseAmount          Decimal?    @map("base_amount") @db.Decimal(10, 2)
+  discountAmount      Decimal?    @map("discount_amount") @db.Decimal(10, 2)
+  appliedDiscountId   String?     @map("applied_discount_id") @db.Uuid
+  appliedDiscountType DiscountType? @map("applied_discount_type")
+  appliedDiscountValue Decimal?   @map("applied_discount_value") @db.Decimal(10, 2)
   amount              Decimal     @db.Decimal(10, 2)
   status              OrderStatus @default(pending)
   adminNote           String?     @map("admin_note")
@@ -194,6 +206,7 @@ model Order {
   user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
   bundle            Bundle             @relation(fields: [bundleId], references: [id], onDelete: Restrict)
   network           Network            @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  appliedDiscount   UserDiscount?      @relation(fields: [appliedDiscountId], references: [id], onDelete: SetNull)
   // SetNull: if a wallet transaction is removed (should not happen in prod), the order
   // record is preserved but loses its payment link
   walletTransaction       WalletTransaction? @relation("OriginalDebit",   fields: [walletTransactionId],       references: [id], onDelete: SetNull)
@@ -205,7 +218,30 @@ model Order {
   @@index([userId, createdAt]) // paginated user order history
   @@index([userId, status]) // filter user orders by status
   @@index([status, createdAt]) // admin queue sorted by creation time
+  @@index([appliedDiscountId])
   @@map("orders")
+}
+
+model UserDiscount {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  type      DiscountType
+  value     Decimal      @db.Decimal(10, 2)
+  isActive  Boolean      @default(true) @map("is_active")
+  startsAt  DateTime?    @map("starts_at")
+  endsAt    DateTime?    @map("ends_at")
+  createdBy String       @map("created_by") @db.Uuid
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  user    User    @relation("UserDiscounts", fields: [userId], references: [id], onDelete: Restrict)
+  creator User    @relation("CreatedUserDiscounts", fields: [createdBy], references: [id], onDelete: Restrict)
+  orders  Order[]
+
+  @@index([userId, isActive])
+  @@index([userId, startsAt, endsAt])
+  @@index([createdBy])
+  @@map("user_discounts")
 }
 
 model PaymentTransaction {

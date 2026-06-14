@@ -1,3 +1,5 @@
+import type { UserDiscountSummary } from '@/types/discount'
+
 export type UserRole = 'retail' | 'agent' | 'admin'
 
 export interface SessionUser {
@@ -18,6 +20,7 @@ export interface AdminUserListItem extends UserProfile {
   walletBalance: string | null
   orderCount: number
   createdAt: string
+  discount: UserDiscountSummary | null
 }
 
 export interface AdminUserWalletTransaction {
@@ -59,6 +62,8 @@ export interface AdminUserDetail extends UserProfile {
     updatedAt: string
   } | null
   orderCount: number
+  discount: UserDiscountSummary | null
+  discountHistory: UserDiscountSummary[]
   recentOrders: AdminUserOrderSummary[]
   walletTransactions: AdminUserWalletTransaction[]
 }

@@ -8,6 +8,11 @@ const ORDER_SELECT = {
   id: true,
   userId: true,
   recipientPhone: true,
+  baseAmount: true,
+  discountAmount: true,
+  appliedDiscountId: true,
+  appliedDiscountType: true,
+  appliedDiscountValue: true,
   amount: true,
   status: true,
   providerReference: true,
@@ -43,6 +48,11 @@ export async function createOrderTx(
     networkId: string
     walletTransactionId: string
     recipientPhone: string
+    baseAmount?: Decimal | null
+    discountAmount?: Decimal | null
+    appliedDiscountId?: string | null
+    appliedDiscountType?: 'percentage' | 'fixed' | null
+    appliedDiscountValue?: Decimal | null
     amount: Decimal
   },
 ) {

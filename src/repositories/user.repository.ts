@@ -1,4 +1,4 @@
-import { db, type PrismaTransactionClient } from '@/lib/db'
+import { db, Prisma, type PrismaTransactionClient } from '@/lib/db'
 import type { AuthUser } from '@/lib/auth/provider'
 
 // DBUser extends AuthUser with passwordHash — only used inside the auth layer.
@@ -14,7 +14,7 @@ const AUTH_SELECT = {
   fullName: true,
   role: true,
   isActive: true,
-} as const
+} satisfies Prisma.UserSelect
 
 // Columns fetched for identity-only operations (no hash)
 const PUBLIC_SELECT = {
@@ -24,7 +24,7 @@ const PUBLIC_SELECT = {
   fullName: true,
   role: true,
   isActive: true,
-} as const
+} satisfies Prisma.UserSelect
 
 const ADMIN_USER_LIST_SELECT = {
   ...PUBLIC_SELECT,
@@ -39,7 +39,22 @@ const ADMIN_USER_LIST_SELECT = {
       orders: true,
     },
   },
-} as const
+  userDiscounts: {
+    orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
+    take: 1,
+    select: {
+      id: true,
+      type: true,
+      value: true,
+      isActive: true,
+      startsAt: true,
+      endsAt: true,
+      createdBy: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  },
+} satisfies Prisma.UserSelect
 
 const ADMIN_USER_DETAIL_SELECT = {
   ...PUBLIC_SELECT,
@@ -56,6 +71,21 @@ const ADMIN_USER_DETAIL_SELECT = {
   _count: {
     select: {
       orders: true,
+    },
+  },
+  userDiscounts: {
+    orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
+    take: 5,
+    select: {
+      id: true,
+      type: true,
+      value: true,
+      isActive: true,
+      startsAt: true,
+      endsAt: true,
+      createdBy: true,
+      createdAt: true,
+      updatedAt: true,
     },
   },
   orders: {
@@ -97,7 +127,7 @@ const ADMIN_USER_DETAIL_SELECT = {
       createdAt: true,
     },
   },
-} as const
+} satisfies Prisma.UserSelect
 
 // ─── Auth lookups (return DBUser with passwordHash) ───────────────────────────
 

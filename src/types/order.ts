@@ -17,6 +17,11 @@ export interface Order {
   id: string
   userId: string
   recipientPhone: string
+  baseAmount: string | null
+  discountAmount: string | null
+  appliedDiscountId: string | null
+  appliedDiscountType: 'percentage' | 'fixed' | null
+  appliedDiscountValue: string | null
   amount: string
   status: OrderStatus
   providerReference: string | null

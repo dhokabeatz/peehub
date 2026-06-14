@@ -8,6 +8,7 @@ import {
   AdminUserNotFoundError,
   SelfUserDeactivationError,
 } from '@/lib/errors/user.errors'
+import { serializeUserDiscountSummary } from '@/services/user-discount.service'
 
 export class UserService {
   async adminListUsers() {
@@ -47,6 +48,17 @@ export class UserService {
     createdAt: Date | string
     wallet: { balance: Prisma.Decimal | string | number } | null
     _count: { orders: number }
+    userDiscounts: Array<{
+      id: string
+      type: 'percentage' | 'fixed'
+      value: Prisma.Decimal | string | number
+      isActive: boolean
+      startsAt: Date | string | null
+      endsAt: Date | string | null
+      createdBy: string
+      createdAt: Date | string
+      updatedAt: Date | string
+    }>
   }) {
     return {
       id: user.id,
@@ -58,6 +70,7 @@ export class UserService {
       walletBalance: user.wallet ? String(user.wallet.balance) : null,
       orderCount: user._count.orders,
       createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt,
+      discount: user.userDiscounts[0] ? serializeUserDiscountSummary(user.userDiscounts[0]) : null,
     }
   }
 
@@ -77,6 +90,17 @@ export class UserService {
       updatedAt: Date | string
     } | null
     _count: { orders: number }
+    userDiscounts: Array<{
+      id: string
+      type: 'percentage' | 'fixed'
+      value: Prisma.Decimal | string | number
+      isActive: boolean
+      startsAt: Date | string | null
+      endsAt: Date | string | null
+      createdBy: string
+      createdAt: Date | string
+      updatedAt: Date | string
+    }>
     orders: Array<{
       id: string
       recipientPhone: string
@@ -129,6 +153,8 @@ export class UserService {
           }
         : null,
       orderCount: user._count.orders,
+      discount: user.userDiscounts[0] ? serializeUserDiscountSummary(user.userDiscounts[0]) : null,
+      discountHistory: user.userDiscounts.map((discount) => serializeUserDiscountSummary(discount)),
       recentOrders: user.orders.map((order) => ({
         id: order.id,
         recipientPhone: order.recipientPhone,

@@ -17,6 +17,21 @@ function formatDate(iso: string) {
   })
 }
 
+function formatDiscount(discount: {
+  type: 'percentage' | 'fixed'
+  value: string
+  status: 'active' | 'scheduled' | 'expired' | 'inactive'
+} | null) {
+  if (!discount) return 'None'
+
+  const label = discount.type === 'percentage'
+    ? `${discount.value}% off`
+    : `GHS ${discount.value} off`
+
+  if (discount.status === 'active') return label
+  return `${label} (${discount.status})`
+}
+
 export default async function AdminUsersPage() {
   const users = await userService.adminListUsers()
 
@@ -42,6 +57,7 @@ export default async function AdminUsersPage() {
                   <th className="px-4 py-3 font-medium text-gray-500">Role</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Status</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Wallet</th>
+                  <th className="px-4 py-3 font-medium text-gray-500">Discount</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Orders</th>
                   <th className="px-4 py-3 font-medium text-gray-500">Joined</th>
                   <th className="px-4 py-3 font-medium text-gray-500 text-right">Action</th>
@@ -62,6 +78,9 @@ export default async function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-700">
                       {user.walletBalance ? `GHS ${user.walletBalance}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                      {formatDiscount(user.discount)}
                     </td>
                     <td className="px-4 py-3 text-gray-700">{user.orderCount}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">

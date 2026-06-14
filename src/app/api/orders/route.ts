@@ -3,6 +3,10 @@ import { z } from 'zod'
 import { orderService } from '@/services/order.service'
 import { consumeRateLimit, getRequestIp } from '@/lib/security/rate-limit'
 import {
+  DiscountedAmountInvalidError,
+  InvalidDiscountValueError,
+} from '@/lib/errors/discount.errors'
+import {
   InsufficientBalanceError,
   BundleNotFoundError,
   NetworkMismatchError,
@@ -74,6 +78,9 @@ export async function POST(req: NextRequest) {
     }
     if (err instanceof WalletNotFoundError) {
       return NextResponse.json({ error: err.message }, { status: 500 })
+    }
+    if (err instanceof InvalidDiscountValueError || err instanceof DiscountedAmountInvalidError) {
+      return NextResponse.json({ error: err.message }, { status: 422 })
     }
     console.error('[POST /api/orders]', err)
     return NextResponse.json({ error: 'Failed to place order' }, { status: 500 })
