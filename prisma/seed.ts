@@ -146,27 +146,33 @@ async function seedDemoData(adminId: string) {
 
   // ── Wallet ─────────────────────────────────────────────────────────────────
   const DEMO_WALLET_BALANCE = new Decimal('200.00')
+  const initialFundReference = seedRef('INIT-FUND')
 
   let wallet = await db.wallet.findUnique({ where: { userId: demoUser.id } })
+  const existingInitialFund = await db.walletTransaction.findUnique({
+    where: { reference: initialFundReference },
+  })
 
   if (!wallet) {
     wallet = await db.wallet.create({
       data: { userId: demoUser.id, balance: DEMO_WALLET_BALANCE },
     })
 
-    await db.walletTransaction.create({
-      data: {
-        walletId:      wallet.id,
-        userId:        demoUser.id,
-        type:          WalletTransactionType.credit,
-        amount:        DEMO_WALLET_BALANCE,
-        balanceBefore: new Decimal('0'),
-        balanceAfter:  DEMO_WALLET_BALANCE,
-        reference:     seedRef('INIT-FUND'),
-        description:   'Demo wallet — initial seed top-up',
-        status:        TransactionStatus.success,
-      },
-    })
+    if (!existingInitialFund) {
+      await db.walletTransaction.create({
+        data: {
+          walletId:      wallet.id,
+          userId:        demoUser.id,
+          type:          WalletTransactionType.credit,
+          amount:        DEMO_WALLET_BALANCE,
+          balanceBefore: new Decimal('0'),
+          balanceAfter:  DEMO_WALLET_BALANCE,
+          reference:     initialFundReference,
+          description:   'Demo wallet — initial seed top-up',
+          status:        TransactionStatus.success,
+        },
+      })
+    }
 
     console.log(`  ✓ Wallet created with GHS ${DEMO_WALLET_BALANCE} balance`)
   } else {
