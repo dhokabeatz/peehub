@@ -14,6 +14,8 @@ const APPLICATION_TABLES = [
   'password_reset_tokens',
 ]
 
+const INITIAL_SCHEMA_TABLES = [...APPLICATION_TABLES]
+
 async function main() {
   const tables = await prisma.$queryRawUnsafe(
     `SELECT tablename
@@ -24,6 +26,7 @@ async function main() {
 
   const tableNames = tables.map((row) => row.tablename)
   const hasApplicationTables = APPLICATION_TABLES.some((table) => tableNames.includes(table))
+  const initialSchemaRepresented = INITIAL_SCHEMA_TABLES.every((table) => tableNames.includes(table))
 
   const migrationTableRows = await prisma.$queryRawUnsafe(
     `SELECT to_regclass('public._prisma_migrations')::text AS table_name`,
@@ -47,10 +50,12 @@ async function main() {
 
   const report = {
     publicTables: tableNames,
+    hasApplicationTables,
     migrationTableExists,
     migrationRecords,
     likelyDbPushBootstrap,
     baselineNeeded,
+    initialSchemaRepresented,
   }
 
   console.log(JSON.stringify(report, null, 2))
@@ -61,6 +66,7 @@ async function main() {
       `has_application_tables=${hasApplicationTables}`,
       `migration_table_exists=${migrationTableExists}`,
       `likely_db_push_bootstrap=${likelyDbPushBootstrap}`,
+      `initial_schema_represented=${initialSchemaRepresented}`,
     ]
     await import('node:fs/promises').then((fs) =>
       fs.appendFile(process.env.GITHUB_OUTPUT, `${lines.join('\n')}\n`),
