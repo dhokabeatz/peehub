@@ -1,49 +1,61 @@
-const phone = process.env.NEXT_PUBLIC_SUPPORT_PHONE
-const email = process.env.NEXT_PUBLIC_SUPPORT_EMAIL
-const year  = new Date().getFullYear()
+import { brand, formatCopyright, formatPoweredBy } from '@/lib/brand'
+
+const year = new Date().getFullYear()
 
 export function Footer() {
+  const contactLinks = [
+    brand.supportPhone
+      ? {
+          label: brand.supportPhone,
+          href: `tel:${brand.supportPhone.replace(/\s/g, '')}`,
+          className: 'text-blue-600 hover:text-blue-700 hover:underline transition-colors',
+        }
+      : null,
+    brand.whatsappNumber
+      ? {
+          label: 'WhatsApp',
+          href: `https://wa.me/${brand.whatsappNumber.replace(/[^\d]/g, '')}`,
+          className: 'text-green-600 hover:text-green-700 hover:underline transition-colors',
+        }
+      : null,
+    brand.supportEmail
+      ? {
+          label: brand.supportEmail,
+          href: `mailto:${brand.supportEmail}`,
+          className: 'text-blue-600 hover:text-blue-700 hover:underline transition-colors',
+        }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; href: string; className: string }>
+
   return (
     <footer className="border-t border-gray-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-gray-400">
-          © {year} PeeHub. All rights reserved.
-        </p>
+      <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-medium text-gray-500">{brand.appName}</p>
+          <p className="text-xs text-gray-400">{formatCopyright(year)}</p>
+          <p className="text-xs text-gray-500">{formatPoweredBy()}</p>
+        </div>
 
-        {(phone || email) && (
-          <p className="text-xs text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-gray-400">Need help?</span>
-            {phone && (
-              <>
+        <div className="flex flex-col gap-1 text-xs text-gray-500 sm:items-end">
+          {contactLinks.length > 0 && (
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-gray-400">Need help?</span>
+              {contactLinks.map((item) => (
                 <a
-                  href={`tel:${phone.replace(/\s/g, '')}`}
-                  className="text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                  key={item.href}
+                  href={item.href}
+                  target={item.href.startsWith('https://') ? '_blank' : undefined}
+                  rel={item.href.startsWith('https://') ? 'noopener noreferrer' : undefined}
+                  className={item.className}
                 >
-                  {phone}
+                  {item.label}
                 </a>
-                <a
-                  href={`https://wa.me/${phone.replace(/[\s+]/g, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-green-600 hover:text-green-700 hover:underline transition-colors"
-                >
-                  WhatsApp
-                </a>
-              </>
-            )}
-            {email && (
-              <span className="text-gray-300 hidden sm:inline">·</span>
-            )}
-            {email && (
-              <a
-                href={`mailto:${email}`}
-                className="text-blue-600 hover:text-blue-700 hover:underline transition-colors"
-              >
-                {email}
-              </a>
-            )}
-          </p>
-        )}
+              ))}
+            </p>
+          )}
+          {brand.businessHours && <p>{brand.businessHours}</p>}
+          {brand.businessAddress && <p className="text-right">{brand.businessAddress}</p>}
+        </div>
       </div>
     </footer>
   )

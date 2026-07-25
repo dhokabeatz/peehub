@@ -356,7 +356,7 @@ async function main() {
     throw new Error(`SEED_MODE must be "prod" or "dev" (got "${mode}")`)
   }
 
-  console.log(`\n── PeeHub seed (SEED_MODE=${mode}) ──────────────────────────────────────────\n`)
+  console.log(`\n── Xpress Data Bundles seed (SEED_MODE=${mode}) ─────────────────────────────\n`)
 
   await seedNetworksAndBundles()
   const admin = await seedAdmin()

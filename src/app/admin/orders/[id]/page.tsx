@@ -5,8 +5,9 @@ import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge'
 import { AdminOrderForm } from '@/components/forms/AdminOrderForm'
 import { Card } from '@/components/ui/Card'
 import type { OrderStatus } from '@/types/order'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'Order Detail · Admin · PeeHub' }
+export const metadata = { title: formatPageTitle('Admin Order Detail') }
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('en-GH', {

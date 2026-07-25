@@ -1,4 +1,4 @@
-# PeeHub - Deployment
+# Xpress Data Bundles - Deployment
 
 ## MVP Target
 
@@ -6,7 +6,7 @@
 |---|---|
 | App hosting | Vercel (CLI-driven via GitHub Actions) |
 | Database | Neon (serverless PostgreSQL) |
-| Domain | hdolabs.com |
+| Domain | Environment-defined custom domains |
 
 ---
 
@@ -39,9 +39,34 @@ PAYMENT_PROVIDER=paystack          # stub | paystack
 PAYSTACK_SECRET_KEY=sk_live_...    # from Paystack dashboard → Settings → API Keys
 # NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY= # client-side key (safe to expose)
 
+# Branding and URLs
+NEXT_PUBLIC_APP_NAME=Xpress Data Bundles
+NEXT_PUBLIC_SHORT_APP_NAME=BMB Xpress
+NEXT_PUBLIC_BUSINESS_OWNER=Bigem Ballas
+NEXT_PUBLIC_SOFTWARE_BUILDER=HDO Labs
+PRODUCTION_DOMAIN=xpress.hdolabs.com
+DEVELOPMENT_DOMAIN=dev-xpress.hdolabs.com
+PRODUCTION_URL=https://xpress.hdolabs.com
+DEVELOPMENT_URL=https://dev-xpress.hdolabs.com
+NEXT_PUBLIC_APP_URL=https://xpress.hdolabs.com
+NEXT_PUBLIC_DEV_APP_URL=https://dev-xpress.hdolabs.com
+NEXT_PUBLIC_COPYRIGHT_NAME=Bigem Ballas
+NEXT_PUBLIC_SEO_DESCRIPTION="Buy fast, affordable and reliable mobile data bundles through Xpress Data Bundles, operated by Bigem Ballas."
+NEXT_PUBLIC_SEO_KEYWORDS="data bundles, mobile data, MTN data bundles, affordable data, Ghana data bundles, BMB Xpress, Xpress Data Bundles"
+
 # Support contact — shown in app footer
-NEXT_PUBLIC_SUPPORT_PHONE=         # e.g. +233 XX XXX XXXX
-NEXT_PUBLIC_SUPPORT_EMAIL=         # e.g. support@peehub.com
+NEXT_PUBLIC_SUPPORT_PHONE=+233204767094
+NEXT_PUBLIC_SUPPORT_EMAIL=engineering@hdolabs.com
+NEXT_PUBLIC_WHATSAPP_NUMBER=+233204767094
+NEXT_PUBLIC_BUSINESS_ADDRESS=
+NEXT_PUBLIC_BUSINESS_HOURS=
+NEXT_PUBLIC_X_URL=
+NEXT_PUBLIC_FACEBOOK_URL=
+NEXT_PUBLIC_INSTAGRAM_URL=
+NEXT_PUBLIC_TIKTOK_URL=
+NEXT_PUBLIC_LOGO_PATH=
+NEXT_PUBLIC_FAVICON_PATH=
+NEXT_PUBLIC_OPEN_GRAPH_IMAGE_PATH=
 ```
 
 ---
@@ -56,13 +81,13 @@ go through the workflows in `.github/workflows/`.
 
 > **Vercel Hobby plan note:** Custom Vercel environments are a Pro/Team feature.
 > The `develop` branch deploys as a standard **Preview** deployment.
-> `dev.peehub.hdolabs.com` is assigned to the `develop` branch in Vercel Domains
+> `dev-xpress.hdolabs.com` is assigned to the `develop` branch in Vercel Domains
 > so Preview deployments from that branch resolve to the correct domain.
 
 | Branch | GitHub Environment | Vercel deployment type | Domain |
 |---|---|---|---|
-| `develop` | `dev` | Preview | `dev.peehub.hdolabs.com` |
-| `main` | `prod` | Production | `peehub.hdolabs.com` |
+| `develop` | `dev` | Preview | `dev-xpress.hdolabs.com` |
+| `main` | `prod` | Production | `xpress.hdolabs.com` |
 
 ---
 
@@ -117,14 +142,14 @@ In Vercel → Project → Settings → Git, disconnect or disable auto-deploymen
 This prevents Vercel from deploying on push independently of GitHub Actions.
 
 #### Assign the develop branch domain
-In Vercel → Project → Settings → Domains, add `dev.peehub.hdolabs.com` and set
+In Vercel → Project → Settings → Domains, add `dev-xpress.hdolabs.com` and set
 its **Git branch** to `develop`. Vercel will then route Preview deployments from
 the `develop` branch to this domain automatically.
 
 | Domain | Git branch |
 |---|---|
-| `peehub.hdolabs.com` | *(production — no branch filter needed)* |
-| `dev.peehub.hdolabs.com` | `develop` |
+| `xpress.hdolabs.com` | *(production — no branch filter needed)* |
+| `dev-xpress.hdolabs.com` | `develop` |
 
 #### Preview environment variables
 On the Hobby plan there is one shared **Preview** environment for all non-production
@@ -137,12 +162,12 @@ individual variables via the "Add another" option on each variable row.
 
 ### 4. DNS setup
 
-Add these records in your DNS provider for `hdolabs.com`:
+Add these records in your DNS provider for your chosen apex domain:
 
 | Type | Name | Value |
 |---|---|---|
-| `CNAME` | `peehub` | `cname.vercel-dns.com` |
-| `CNAME` | `dev.peehub` | `cname.vercel-dns.com` |
+| `CNAME` | `<prod-subdomain>` | `cname.vercel-dns.com` |
+| `CNAME` | `<dev-subdomain>` | `cname.vercel-dns.com` |
 
 Vercel will issue TLS certificates automatically once the DNS records propagate.
 
@@ -159,9 +184,10 @@ JWT secrets, etc.).
 DATABASE_URL=postgresql://...
 DIRECT_URL=postgresql://...
 
-# App URL (used by serverFetch for internal API calls)
-NEXT_PUBLIC_APP_URL=https://peehub.hdolabs.com          # Production scope
-# NEXT_PUBLIC_APP_URL=https://dev.peehub.hdolabs.com    # Preview scope
+# App URLs
+NEXT_PUBLIC_APP_URL=https://xpress.hdolabs.com          # Production scope
+# NEXT_PUBLIC_APP_URL=https://dev-xpress.hdolabs.com    # Preview scope
+NEXT_PUBLIC_DEV_APP_URL=https://dev-xpress.hdolabs.com
 
 # Auth — JWT
 AUTH_PROVIDER=local
@@ -192,7 +218,7 @@ push to develop
        ├─ vercel pull --environment=preview
        ├─ vercel build               ← preview artifact (no --prod)
        └─ vercel deploy --prebuilt   ← preview deployment
-            └─ Vercel routes develop branch → dev.peehub.hdolabs.com
+            └─ Vercel routes develop branch → dev-xpress.hdolabs.com
 
 push to main
   └─ deploy-prod.yml
@@ -202,7 +228,7 @@ push to main
        ├─ vercel pull --environment=production
        ├─ vercel build --prod
        └─ vercel deploy --prebuilt --prod
-            └─ promotes peehub.hdolabs.com
+            └─ promotes xpress.hdolabs.com
 ```
 
 Concurrency control is enabled per branch — a newer push cancels any
@@ -218,4 +244,4 @@ in-progress run on the same branch, preventing stale deploys from racing.
 - [ ] `NEXT_PUBLIC_APP_URL` set correctly in each Vercel environment
 - [ ] Domain DNS propagated and TLS certificates issued by Vercel
 - [ ] Auth, wallet fund, and order flows tested manually on each environment
-- [ ] Payment webhook URL registered with provider: `https://peehub.hdolabs.com/api/payments/webhook`
+- [ ] Payment webhook URL registered with provider: `https://xpress.hdolabs.com/api/payments/webhook`

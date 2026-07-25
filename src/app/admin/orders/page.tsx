@@ -6,8 +6,9 @@ import { AdminEmptyState } from '@/components/admin/AdminEmptyState'
 import { AdminTableShell } from '@/components/admin/AdminTableShell'
 import type { OrderStatus } from '@/types/order'
 import type { OrderStatus as PrismaOrderStatus } from '@prisma/client'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'All Orders · Admin · PeeHub' }
+export const metadata = { title: formatPageTitle('Admin Orders') }
 
 const STATUS_FILTERS: { label: string; value: string }[] = [
   { label: 'All',        value: '' },

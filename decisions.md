@@ -1,4 +1,4 @@
-# Peehub - Architecture Decision Records
+# Xpress Data Bundles - Architecture Decision Records
 
 ## ADR-001: Next.js Full-Stack Monolith for MVP
 

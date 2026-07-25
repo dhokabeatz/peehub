@@ -4,8 +4,9 @@ import { getServerSession } from '@/app/_lib/auth'
 import { orderService } from '@/services/order.service'
 import { OrderCard } from '@/components/shared/OrderCard'
 import { Button } from '@/components/ui/Button'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'My Orders · PeeHub' }
+export const metadata = { title: formatPageTitle('My Orders') }
 
 export default async function OrdersPage() {
   const session = await getServerSession()

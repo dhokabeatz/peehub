@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation'
 import { bundleService } from '@/services/bundle.service'
 import { AdminBundleForm } from '@/components/forms/AdminBundleForm'
 import { Card } from '@/components/ui/Card'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'Bundle Detail · Admin · PeeHub' }
+export const metadata = { title: formatPageTitle('Admin Bundle Detail') }
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('en-GH', {

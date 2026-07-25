@@ -17,14 +17,9 @@ import {
   PaystackVerificationError,
   ManualPaymentConfirmationNotAllowedError,
 } from '@/lib/errors/payment.errors'
+import { getAppUrl } from '@/lib/site'
 
 // No Next.js imports — framework-free and unit-testable.
-
-function getAppUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL?.trim()) return process.env.NEXT_PUBLIC_APP_URL.trim()
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  return 'http://localhost:3000'
-}
 
 export class WalletService {
   async getBalance(userId: string) {
@@ -60,7 +55,7 @@ export class WalletService {
       // Fetch user email — required by Paystack. Users who registered with
       // phone only get a synthetic placeholder accepted by Paystack test mode.
       const user = await findUserById(userId)
-      const email = user?.email ?? `${userId.slice(0, 8)}@peehub.hdolabs.com`
+      const email = user?.email ?? `${userId.slice(0, 8)}@example.com`
 
       const paystackResult = await initializeTransaction({
         email,

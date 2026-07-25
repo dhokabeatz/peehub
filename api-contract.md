@@ -1,4 +1,4 @@
-# Peehub - API Contract
+# Xpress Data Bundles - API Contract
 
 All endpoints are prefixed with `/api`. All request/response bodies are JSON.
 

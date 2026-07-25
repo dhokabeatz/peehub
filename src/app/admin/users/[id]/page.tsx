@@ -8,8 +8,9 @@ import { AdminUserDiscountForm } from '@/components/forms/AdminUserDiscountForm'
 import { OrderStatusBadge } from '@/components/shared/OrderStatusBadge'
 import type { OrderStatus } from '@/types/order'
 import { Badge } from '@/components/ui/Badge'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'User Detail · Admin · PeeHub' }
+export const metadata = { title: formatPageTitle('Admin User Detail') }
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('en-GH', {

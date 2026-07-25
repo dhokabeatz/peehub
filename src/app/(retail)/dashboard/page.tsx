@@ -6,8 +6,9 @@ import { orderService } from '@/services/order.service'
 import { WalletBalanceCard } from '@/components/shared/WalletBalanceCard'
 import { OrderCard } from '@/components/shared/OrderCard'
 import { Button } from '@/components/ui/Button'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'Dashboard · PeeHub' }
+export const metadata = { title: formatPageTitle('Dashboard') }
 
 export default async function DashboardPage() {
   const session = await getServerSession()

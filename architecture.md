@@ -1,4 +1,4 @@
-# Peehub - System Architecture
+# Xpress Data Bundles - System Architecture
 
 ## 1. Tech Stack Decision
 
@@ -710,7 +710,7 @@ DELETE /api/admin/bundles/:id         -- soft delete (sets isActive=false)
 ## 6. Folder Structure
 
 ```
-peehub/
+xpress-data-bundles/
 ├── prisma/
 │   ├── schema.prisma               # All table definitions
 │   └── migrations/                 # Auto-generated migration files
@@ -722,7 +722,7 @@ peehub/
 │   │   │   ├── register/page.tsx
 │   │   │   └── reset-password/page.tsx
 │   │   │
-│   │   ├── (dashboard)/            # Route group — user dashboard layout
+│   │   ├── (retail)/               # Route group — user dashboard layout
 │   │   │   ├── layout.tsx          # Sidebar + auth guard
 │   │   │   ├── dashboard/page.tsx  # Overview: balance, recent orders
 │   │   │   ├── buy/page.tsx        # Bundle selection + order form
