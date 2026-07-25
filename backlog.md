@@ -1,4 +1,4 @@
-# Peehub - MVP Backlog
+# Xpress Data Bundles - MVP Backlog
 
 Ordered by real implementation sequence.
 
@@ -99,7 +99,7 @@ Ordered by real implementation sequence.
 - [x] Smoke test all critical flows
 - [x] Fix launch issues
 
-> Both `dev.peehub.hdolabs.com` (preview) and `peehub.hdolabs.com` (production) are live.
+> Preview and production domains should be supplied via environment-specific configuration before release.
 
 ---
 

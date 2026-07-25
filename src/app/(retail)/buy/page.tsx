@@ -1,6 +1,7 @@
 import { BuyDataForm } from '@/components/forms/BuyDataForm'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'Buy Data · PeeHub' }
+export const metadata = { title: formatPageTitle('Buy Data') }
 
 export default function BuyPage() {
   return (

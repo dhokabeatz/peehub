@@ -1,7 +1,8 @@
 import { adminDashboardService } from '@/services/admin-dashboard.service'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'Dashboard · Admin · PeeHub' }
+export const metadata = { title: formatPageTitle('Admin Dashboard') }
 
 type AdminDashboardMetricKey =
   | 'totalUsers'

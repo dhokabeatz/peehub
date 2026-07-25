@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation'
 import { bundleService } from '@/services/bundle.service'
 import { AdminBundleForm } from '@/components/forms/AdminBundleForm'
 import { Card } from '@/components/ui/Card'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'New Bundle · Admin · PeeHub' }
+export const metadata = { title: formatPageTitle('New Bundle') }
 
 export default async function AdminNewBundlePage() {
   const networks = await bundleService.getNetworks()

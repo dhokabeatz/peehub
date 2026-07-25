@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { UserProfile } from '@/types/user'
 import { Footer } from '@/components/layout/Footer'
+import { brand } from '@/lib/brand'
 
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
@@ -50,7 +51,10 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
       >
         {/* Brand */}
         <div className="px-5 py-5 border-b border-slate-800">
-          <span className="text-white font-bold text-lg tracking-tight">PeeHub</span>
+          <div className="flex flex-col">
+            <span className="text-white font-bold text-lg tracking-tight">{brand.shortAppName}</span>
+            <span className="text-xs text-slate-400">{brand.appName}</span>
+          </div>
         </div>
 
         {/* Nav */}
@@ -107,7 +111,7 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
           >
             <MenuIcon className="w-5 h-5" />
           </button>
-          <span className="font-semibold text-gray-900">PeeHub</span>
+          <span className="font-semibold text-gray-900">{brand.shortAppName}</span>
         </header>
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-5xl w-full mx-auto">

@@ -1,8 +1,8 @@
-# PeeHub - Requirements Document
+# Xpress Data Bundles - Requirements Document
 
 ## 1. Project Overview
 
-Peehub is a web-based platform designed to allow users (agents and retail customers) to purchase mobile data bundles across multiple networks.
+Xpress Data Bundles is a web-based platform designed to allow users (agents and retail customers) to purchase mobile data bundles across multiple networks.
 
 The system will provide a structured and centralized way for users to:
 - Fund a wallet

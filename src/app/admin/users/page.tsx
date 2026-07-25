@@ -4,8 +4,9 @@ import { Badge } from '@/components/ui/Badge'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState'
 import { AdminTableShell } from '@/components/admin/AdminTableShell'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'Users · Admin · PeeHub' }
+export const metadata = { title: formatPageTitle('Admin Users') }
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GH', {

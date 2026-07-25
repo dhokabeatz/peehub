@@ -7,8 +7,9 @@ import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState'
 import { AdminTableShell } from '@/components/admin/AdminTableShell'
 import type { AdminPaymentProvider, AdminPaymentStatus } from '@/types/payment'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'Wallet Reconciliation · Admin · PeeHub' }
+export const metadata = { title: formatPageTitle('Admin Wallet Reconciliation') }
 
 export const dynamic = 'force-dynamic'
 

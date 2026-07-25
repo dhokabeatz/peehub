@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { FundWalletForm } from '@/components/forms/FundWalletForm'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'Fund Wallet · PeeHub' }
+export const metadata = { title: formatPageTitle('Fund Wallet') }
 
 const isPaystack = process.env.PAYMENT_PROVIDER === 'paystack'
 

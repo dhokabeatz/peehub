@@ -26,7 +26,7 @@ trap cleanup EXIT
 # ── Prompt for production credentials ────────────────────────────────────────
 echo ""
 echo "═══════════════════════════════════════════════════"
-echo "  PeeHub — Production Seed"
+echo "  Xpress Data Bundles — Production Seed"
 echo "═══════════════════════════════════════════════════"
 echo ""
 echo "Enter the PRODUCTION Neon connection strings."
@@ -35,12 +35,12 @@ echo ""
 
 read -rp "PROD DATABASE_URL (pooler): " PROD_DATABASE_URL
 read -rp "PROD DIRECT_URL   (direct): " PROD_DIRECT_URL
-read -rp "ADMIN_EMAIL       [admin@peehub.com]: " PROD_ADMIN_EMAIL
-PROD_ADMIN_EMAIL="${PROD_ADMIN_EMAIL:-admin@peehub.com}"
+read -rp "ADMIN_EMAIL       [admin@example.com]: " PROD_ADMIN_EMAIL
+PROD_ADMIN_EMAIL="${PROD_ADMIN_EMAIL:-admin@example.com}"
 read -rsp "ADMIN_PASSWORD: " PROD_ADMIN_PASSWORD
 echo ""
-read -rp "ADMIN_FULL_NAME   [PeeHub Admin]: " PROD_ADMIN_FULL_NAME
-PROD_ADMIN_FULL_NAME="${PROD_ADMIN_FULL_NAME:-PeeHub Admin}"
+read -rp "ADMIN_FULL_NAME   [Xpress Admin]: " PROD_ADMIN_FULL_NAME
+PROD_ADMIN_FULL_NAME="${PROD_ADMIN_FULL_NAME:-Xpress Admin}"
 
 echo ""
 echo "─── Summary ────────────────────────────────────────"
@@ -64,12 +64,12 @@ cat > "$ENV_FILE" <<EOF
 
 DATABASE_URL="${PROD_DATABASE_URL}"
 DIRECT_URL="${PROD_DIRECT_URL}"
-NEXT_PUBLIC_APP_URL="https://peehub.hdolabs.com"
+NEXT_PUBLIC_APP_URL="https://xpress.hdolabs.com"
 
 ADMIN_EMAIL="${PROD_ADMIN_EMAIL}"
 ADMIN_PASSWORD="${PROD_ADMIN_PASSWORD}"
 ADMIN_FULL_NAME="${PROD_ADMIN_FULL_NAME}"
-DEMO_USER_EMAIL="demo@peehub.com"
+DEMO_USER_EMAIL="demo@example.com"
 DEMO_USER_PASSWORD="Demo1234!"
 DEMO_USER_FULL_NAME="Demo User"
 EOF

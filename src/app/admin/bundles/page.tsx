@@ -4,7 +4,9 @@ import { Badge } from '@/components/ui/Badge'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { AdminEmptyState } from '@/components/admin/AdminEmptyState'
 import { AdminTableShell } from '@/components/admin/AdminTableShell'
-export const metadata = { title: 'Bundles · Admin · PeeHub' }
+import { formatPageTitle } from '@/lib/brand'
+
+export const metadata = { title: formatPageTitle('Admin Bundles') }
 
 function formatMoney(price: string) {
   return `GHS ${price}`

@@ -106,8 +106,8 @@ GitHub Actions → Vercel CLI (not Vercel's automatic Git integration, which is 
 
 | Branch | Workflow | Vercel type | Domain |
 |---|---|---|---|
-| `develop` | `deploy-dev.yml` | Preview | `dev.peehub.hdolabs.com` |
-| `main` | `deploy-prod.yml` | Production | `peehub.hdolabs.com` |
+| `develop` | `deploy-dev.yml` | Preview | `dev-xpress.hdolabs.com` |
+| `main` | `deploy-prod.yml` | Production | `xpress.hdolabs.com` |
 
 Required GitHub secrets per environment (`dev` / `prod`): `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
 

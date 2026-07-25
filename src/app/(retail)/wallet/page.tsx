@@ -4,8 +4,9 @@ import { getServerSession } from '@/app/_lib/auth'
 import { walletService } from '@/services/wallet.service'
 import { WalletBalanceCard } from '@/components/shared/WalletBalanceCard'
 import { Button } from '@/components/ui/Button'
+import { formatPageTitle } from '@/lib/brand'
 
-export const metadata = { title: 'Wallet · PeeHub' }
+export const metadata = { title: formatPageTitle('Wallet') }
 
 const isPaystack = process.env.PAYMENT_PROVIDER === 'paystack'
 

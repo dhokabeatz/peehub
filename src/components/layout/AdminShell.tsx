@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { UserProfile } from '@/types/user'
 import { Footer } from '@/components/layout/Footer'
+import { brand } from '@/lib/brand'
 
 const adminNavLinks = [
   { href: '/admin', label: 'Dashboard', icon: GridIcon },
@@ -48,7 +49,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
         ].join(' ')}
       >
         <div className="px-5 py-5 border-b border-slate-800">
-          <span className="text-white font-bold text-lg tracking-tight">PeeHub</span>
+          <span className="text-white font-bold text-lg tracking-tight">{brand.shortAppName}</span>
           <span className="ml-2 text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded font-medium">
             Admin
           </span>
