@@ -26,6 +26,8 @@ jobs:
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      PRODUCTION_DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
 
     steps:
       - name: Checkout repository
@@ -56,8 +58,14 @@ jobs:
       - name: Pull Vercel environment config
         run: vercel pull --yes --environment=preview --git-branch=develop --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Pull Production env for fingerprint comparison
-        run: vercel env pull .vercel/.env.production.compare --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Prepare production DB comparison values
+        run: |
+          test -n "$PRODUCTION_DATABASE_URL"
+          test -n "$PRODUCTION_DIRECT_URL"
+          cat > .vercel/.env.production.compare <<EOF
+          DATABASE_URL="$PRODUCTION_DATABASE_URL"
+          DIRECT_URL="$PRODUCTION_DIRECT_URL"
+          EOF
 
       - name: Validate database separation
         run: node scripts/ci/check-db-separation.mjs .vercel/.env.preview.local .vercel/.env.production.compare

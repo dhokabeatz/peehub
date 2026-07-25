@@ -35,25 +35,36 @@ function parseEnvFile(file) {
   return vars
 }
 
+function fingerprint(value) {
+  return crypto.createHash('sha256').update(value).digest('hex').slice(0, 12)
+}
+
+function normalizeHost(hostname) {
+  return hostname.replace(/-pooler(?=\.)/, '')
+}
+
 function describeConnection(label, value) {
   if (!value) {
     throw new Error(`${label} is missing`)
   }
 
   const url = new URL(value)
-  const normalized = JSON.stringify({
+  const fullIdentity = JSON.stringify({
     protocol: url.protocol,
     host: url.hostname,
     port: url.port || '',
     database: url.pathname.replace(/^\//, ''),
     schema: url.searchParams.get('schema') || 'public(default)',
   })
-
-  return {
-    host: url.hostname,
+  const logicalIdentity = JSON.stringify({
+    host: normalizeHost(url.hostname),
     database: url.pathname.replace(/^\//, ''),
     schema: url.searchParams.get('schema') || 'public(default)',
-    fingerprint: crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 12),
+  })
+
+  return {
+    fingerprint: fingerprint(fullIdentity),
+    logicalFingerprint: fingerprint(logicalIdentity),
   }
 }
 
@@ -75,17 +86,46 @@ function compareConnections(kind, preview, production) {
   }
 }
 
+function assertSharedLogicalDatabase(labelA, connA, labelB, connB) {
+  console.log(
+    JSON.stringify(
+      {
+        kind: 'PREVIEW_LOGICAL_DATABASE',
+        [labelA]: {
+          logicalFingerprint: connA.logicalFingerprint,
+        },
+        [labelB]: {
+          logicalFingerprint: connB.logicalFingerprint,
+        },
+      },
+      null,
+      2,
+    ),
+  )
+
+  if (connA.logicalFingerprint !== connB.logicalFingerprint) {
+    throw new Error(`${labelA} and ${labelB} do not point to the same logical database`)
+  }
+}
+
 const preview = parseEnvFile(previewEnvFile)
 const production = parseEnvFile(productionEnvFile)
 
+const previewDatabase = describeConnection('Preview DATABASE_URL', preview.DATABASE_URL)
+const previewDirect = describeConnection('Preview DIRECT_URL', preview.DIRECT_URL)
+const productionDatabase = describeConnection('Production DATABASE_URL', production.DATABASE_URL)
+const productionDirect = describeConnection('Production DIRECT_URL', production.DIRECT_URL)
+
+assertSharedLogicalDatabase('previewDatabase', previewDatabase, 'previewDirect', previewDirect)
+
 compareConnections(
   'DATABASE_URL',
-  describeConnection('Preview DATABASE_URL', preview.DATABASE_URL),
-  describeConnection('Production DATABASE_URL', production.DATABASE_URL),
+  previewDatabase,
+  productionDatabase,
 )
 
 compareConnections(
   'DIRECT_URL',
-  describeConnection('Preview DIRECT_URL', preview.DIRECT_URL),
-  describeConnection('Production DIRECT_URL', production.DIRECT_URL),
+  previewDirect,
+  productionDirect,
 )
