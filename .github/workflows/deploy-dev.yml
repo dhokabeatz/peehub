@@ -119,19 +119,33 @@ jobs:
       - name: Verify required schema
         run: npx tsx scripts/ci/assert-required-schema.ts
 
-      - name: Seed development database
-        run: |
-          SEED_MODE=dev npx prisma db seed
-
-      - name: Re-run development seed for idempotency
-        run: |
-          SEED_MODE=dev npx prisma db seed
-
       - name: Pull Vercel runtime environment config
         run: vercel pull --yes --environment=preview --git-branch=develop --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Prepare runtime environment file
         run: grep -vE '^(DATABASE_URL|DIRECT_URL)=' .vercel/.env.preview.local > .vercel/.env.preview.runtime.local
+
+      - name: Seed development database
+        run: |
+          set -a
+          source .vercel/.env.preview.runtime.local
+          set +a
+          export ADMIN_EMAIL="${ADMIN_EMAIL%\\n}"
+          export ADMIN_FULL_NAME="${ADMIN_FULL_NAME%\\n}"
+          export DEMO_USER_EMAIL="${DEMO_USER_EMAIL%\\n}"
+          export DEMO_USER_FULL_NAME="${DEMO_USER_FULL_NAME%\\n}"
+          SEED_MODE=dev npx prisma db seed
+
+      - name: Re-run development seed for idempotency
+        run: |
+          set -a
+          source .vercel/.env.preview.runtime.local
+          set +a
+          export ADMIN_EMAIL="${ADMIN_EMAIL%\\n}"
+          export ADMIN_FULL_NAME="${ADMIN_FULL_NAME%\\n}"
+          export DEMO_USER_EMAIL="${DEMO_USER_EMAIL%\\n}"
+          export DEMO_USER_FULL_NAME="${DEMO_USER_FULL_NAME%\\n}"
+          SEED_MODE=dev npx prisma db seed
 
       - name: Run lint
         run: npm run lint
