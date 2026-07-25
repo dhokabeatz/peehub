@@ -3,6 +3,10 @@ import { z } from 'zod'
 import { authService } from '@/services/auth.service'
 import { setAuthCookies } from '@/lib/auth/cookies'
 import { consumeRateLimit, getRequestIp } from '@/lib/security/rate-limit'
+import {
+  getDatabaseReadinessCode,
+  isDatabaseReadinessError,
+} from '@/lib/errors/database.errors'
 
 const loginSchema = z.object({
   identifier: z.string().min(1, 'Email or phone is required'),
@@ -52,7 +56,30 @@ export async function POST(req: NextRequest) {
     const res = NextResponse.json({ user: result.user })
     setAuthCookies(res, { accessToken: result.accessToken, refreshToken: result.refreshToken })
     return res
-  } catch {
+  } catch (error) {
+    if (isDatabaseReadinessError(error)) {
+      console.error(
+        JSON.stringify({
+          code: getDatabaseReadinessCode(error),
+          route: 'auth.login',
+          message: 'Authentication blocked by database readiness failure',
+        }),
+      )
+
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable. Please try again later.' },
+        { status: 503 },
+      )
+    }
+
+    console.error(
+      JSON.stringify({
+        code: 'AUTH_LOGIN_UNEXPECTED_ERROR',
+        route: 'auth.login',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+    )
+
     return NextResponse.json({ error: 'Login failed' }, { status: 500 })
   }
 }

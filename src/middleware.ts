@@ -10,6 +10,8 @@ const PUBLIC_API_ROUTES = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/refresh',
+  '/api/health',
+  '/api/ready',
   '/api/networks',       // bundle/network catalog is public — no auth required to browse
   '/api/payments/',      // callback + webhook are called by Paystack, not the user's browser
 ]
@@ -65,7 +67,7 @@ function unauthorizedOrRedirect(req: NextRequest): NextResponse {
 
 export const config = {
   matcher: [
-    // Match all routes except _next/static, _next/image, favicon, and public assets
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Match all routes except internal assets and public metadata/static files.
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

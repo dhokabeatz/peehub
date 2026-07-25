@@ -3,6 +3,10 @@ import { z } from 'zod'
 import { authService } from '@/services/auth.service'
 import { setAuthCookies } from '@/lib/auth/cookies'
 import { consumeRateLimit, getRequestIp } from '@/lib/security/rate-limit'
+import {
+  getDatabaseReadinessCode,
+  isDatabaseReadinessError,
+} from '@/lib/errors/database.errors'
 
 const registerSchema = z
   .object({
@@ -54,6 +58,21 @@ export async function POST(req: NextRequest) {
     setAuthCookies(res, { accessToken: result.accessToken, refreshToken: result.refreshToken })
     return res
   } catch (err) {
+    if (isDatabaseReadinessError(err)) {
+      console.error(
+        JSON.stringify({
+          code: getDatabaseReadinessCode(err),
+          route: 'auth.register',
+          message: 'Registration blocked by database readiness failure',
+        }),
+      )
+
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable. Please try again later.' },
+        { status: 503 },
+      )
+    }
+
     const message = err instanceof Error ? err.message : 'Registration failed'
     if (message.toLowerCase().includes('unique') || message.toLowerCase().includes('already')) {
       return NextResponse.json({ error: 'Email or phone already registered' }, { status: 409 })
