@@ -13,6 +13,7 @@ export async function GET() {
       status: 'not_ready',
       database: readiness.database,
       schema: readiness.schema,
+      environment: readiness.environment,
     },
     { status: 503 },
   )

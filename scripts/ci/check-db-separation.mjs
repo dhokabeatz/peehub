@@ -49,20 +49,27 @@ function describeConnection(label, value) {
   }
 
   const url = new URL(value)
+  const host = url.hostname
+  const normalizedHost = normalizeHost(host)
+  const database = url.pathname.replace(/^\//, '')
+  const schema = url.searchParams.get('schema') || 'public(default)'
   const fullIdentity = JSON.stringify({
     protocol: url.protocol,
-    host: url.hostname,
+    host,
     port: url.port || '',
-    database: url.pathname.replace(/^\//, ''),
-    schema: url.searchParams.get('schema') || 'public(default)',
+    database,
+    schema,
   })
   const logicalIdentity = JSON.stringify({
-    host: normalizeHost(url.hostname),
-    database: url.pathname.replace(/^\//, ''),
-    schema: url.searchParams.get('schema') || 'public(default)',
+    host: normalizedHost,
+    database,
+    schema,
   })
 
   return {
+    host,
+    normalizedHost,
+    database,
     fingerprint: fingerprint(fullIdentity),
     logicalFingerprint: fingerprint(logicalIdentity),
   }
@@ -92,9 +99,15 @@ function assertSharedLogicalDatabase(labelA, connA, labelB, connB) {
       {
         kind: 'PREVIEW_LOGICAL_DATABASE',
         [labelA]: {
+          host: connA.host,
+          normalizedHost: connA.normalizedHost,
+          database: connA.database,
           logicalFingerprint: connA.logicalFingerprint,
         },
         [labelB]: {
+          host: connB.host,
+          normalizedHost: connB.normalizedHost,
+          database: connB.database,
           logicalFingerprint: connB.logicalFingerprint,
         },
       },
@@ -108,6 +121,32 @@ function assertSharedLogicalDatabase(labelA, connA, labelB, connB) {
   }
 }
 
+function assertLogicalSeparation(preview, production) {
+  console.log(
+    JSON.stringify(
+      {
+        kind: 'LOGICAL_SEPARATION',
+        preview: {
+          normalizedHost: preview.normalizedHost,
+          database: preview.database,
+          logicalFingerprint: preview.logicalFingerprint,
+        },
+        production: {
+          normalizedHost: production.normalizedHost,
+          database: production.database,
+          logicalFingerprint: production.logicalFingerprint,
+        },
+      },
+      null,
+      2,
+    ),
+  )
+
+  if (preview.logicalFingerprint === production.logicalFingerprint) {
+    throw new Error('Preview and production logical databases are identical')
+  }
+}
+
 const preview = parseEnvFile(previewEnvFile)
 const production = parseEnvFile(productionEnvFile)
 
@@ -117,6 +156,8 @@ const productionDatabase = describeConnection('Production DATABASE_URL', product
 const productionDirect = describeConnection('Production DIRECT_URL', production.DIRECT_URL)
 
 assertSharedLogicalDatabase('previewDatabase', previewDatabase, 'previewDirect', previewDirect)
+assertSharedLogicalDatabase('productionDatabase', productionDatabase, 'productionDirect', productionDirect)
+assertLogicalSeparation(previewDatabase, productionDatabase)
 
 compareConnections(
   'DATABASE_URL',

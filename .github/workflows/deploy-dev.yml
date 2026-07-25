@@ -24,6 +24,8 @@ jobs:
     environment: dev
 
     env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
@@ -55,55 +57,54 @@ jobs:
           mkdir -p .vercel
           echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
 
-      - name: Pull Vercel environment config
-        run: vercel pull --yes --environment=preview --git-branch=develop --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Prepare production DB comparison values
+      - name: Prepare database comparison values
         run: |
+          test -n "$DATABASE_URL"
+          test -n "$DIRECT_URL"
           test -n "$PRODUCTION_DATABASE_URL"
           test -n "$PRODUCTION_DIRECT_URL"
-          cat > .vercel/.env.production.compare <<EOF
+          cat > .ci.preview.env <<EOF
+          DATABASE_URL="$DATABASE_URL"
+          DIRECT_URL="$DIRECT_URL"
+          EOF
+          cat > .ci.production.env <<EOF
           DATABASE_URL="$PRODUCTION_DATABASE_URL"
           DIRECT_URL="$PRODUCTION_DIRECT_URL"
           EOF
 
+      - name: Print database source diagnostics
+        run: |
+          echo "GitHub environment: dev"
+          echo "Git branch: ${GITHUB_REF_NAME}"
+
       - name: Validate database separation
-        run: node scripts/ci/check-db-separation.mjs .vercel/.env.preview.local .vercel/.env.production.compare
+        run: node scripts/ci/check-db-separation.mjs .ci.preview.env .ci.production.env
 
       - name: Generate Prisma client
-        run: |
-          set -a
-          source .vercel/.env.preview.local
-          set +a
-          npx prisma generate
+        run: npx prisma generate
 
       - name: Check migration status
-        run: |
-          set -a
-          source .vercel/.env.preview.local
-          set +a
-          npx prisma migrate status
+        run: npx prisma migrate status
 
       - name: Apply migrations
-        run: |
-          set -a
-          source .vercel/.env.preview.local
-          set +a
-          npx prisma migrate deploy
+        run: npx prisma migrate deploy
 
       - name: Verify required schema
-        run: |
-          set -a
-          source .vercel/.env.preview.local
-          set +a
-          npx tsx scripts/ci/assert-required-schema.ts
+        run: npx tsx scripts/ci/assert-required-schema.ts
 
       - name: Seed development database
         run: |
-          set -a
-          source .vercel/.env.preview.local
-          set +a
           SEED_MODE=dev npx prisma db seed
+
+      - name: Re-run development seed for idempotency
+        run: |
+          SEED_MODE=dev npx prisma db seed
+
+      - name: Pull Vercel runtime environment config
+        run: vercel pull --yes --environment=preview --git-branch=develop --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Prepare runtime environment file
+        run: grep -vE '^(DATABASE_URL|DIRECT_URL)=' .vercel/.env.preview.local > .vercel/.env.preview.runtime.local
 
       - name: Run lint
         run: npm run lint
@@ -114,7 +115,7 @@ jobs:
       - name: Build application
         run: |
           set -a
-          source .vercel/.env.preview.local
+          source .vercel/.env.preview.runtime.local
           set +a
           npm run build
 

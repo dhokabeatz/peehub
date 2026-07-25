@@ -16,6 +16,10 @@ const REQUIRED_TABLES = [
 ] as const
 
 export class ReadinessService {
+  private getEnvironment() {
+    return process.env.VERCEL_ENV ?? (process.env.NODE_ENV === 'production' ? 'production' : 'development')
+  }
+
   async check() {
     try {
       await db.$queryRawUnsafe('SELECT 1')
@@ -37,6 +41,7 @@ export class ReadinessService {
           database: 'reachable' as const,
           schema: 'not_ready' as const,
           code: 'DB_SCHEMA_NOT_READY' as const,
+          environment: this.getEnvironment(),
         }
       }
 
@@ -44,6 +49,7 @@ export class ReadinessService {
         status: 'ready' as const,
         database: 'reachable' as const,
         schema: 'ready' as const,
+        environment: this.getEnvironment(),
       }
     } catch (error) {
       return {
@@ -51,6 +57,7 @@ export class ReadinessService {
         database: 'unreachable' as const,
         schema: 'unknown' as const,
         code: getDatabaseReadinessCode(error),
+        environment: this.getEnvironment(),
       }
     }
   }
