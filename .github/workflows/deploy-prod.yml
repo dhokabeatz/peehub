@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 # Concurrency: cancel any in-progress production deploy for main if a newer
 # push lands. Scoped to prod only — never cancels a dev run.
@@ -23,60 +24,146 @@ jobs:
     environment: prod
 
     env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      PAYMENT_PROVIDER: ${{ secrets.PAYMENT_PROVIDER }}
+      PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+      NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Node.js ─────────────────────────────────────────────────────────────
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      # ── Install dependencies ────────────────────────────────────────────────
+      - name: Validate deployment scope
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            test "${GITHUB_REF_NAME}" = "main"
+            echo "Deploying main branch to Production environment"
+          else
+            echo "Running production inspection workflow on ref ${GITHUB_REF_NAME}"
+          fi
+
       - name: Install dependencies
         run: npm ci
 
-      # ── Prisma generate ─────────────────────────────────────────────────────
-      # Generates the Prisma client from schema.prisma so the build can
-      # import @prisma/client. The generated output is not committed to git.
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      # ── Build ────────────────────────────────────────────────────────────────
-      # Run next build locally first. If the build fails the deploy never runs.
-      - name: Build application
-        run: npm run build
-
-      # ── Install Vercel CLI ───────────────────────────────────────────────────
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      # ── Recreate Vercel project link metadata in CI ────────────────────────
-      # .vercel is gitignored locally, so CI reconstructs project.json from
-      # environment-scoped secrets before calling vercel pull.
+      - name: Validate Paystack live-mode keys
+        run: |
+          PAYSTACK_SECRET_KEY_CLEAN="${PAYSTACK_SECRET_KEY%\\n}"
+          NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN="${NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY%\\n}"
+          PAYMENT_PROVIDER_CLEAN="${PAYMENT_PROVIDER%\\n}"
+          test "$PAYMENT_PROVIDER_CLEAN" = "paystack"
+          test -n "$PAYSTACK_SECRET_KEY_CLEAN"
+          test -n "$NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN"
+          case "$PAYSTACK_SECRET_KEY_CLEAN" in
+            sk_live_*) ;;
+            *) echo "PAYSTACK_SECRET_KEY must use live-mode prefix in Deploy — Production" >&2; exit 1 ;;
+          esac
+          case "$NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN" in
+            pk_live_*) ;;
+            *) echo "NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY must use live-mode prefix in Deploy — Production" >&2; exit 1 ;;
+          esac
+
+      - name: Print production database diagnostics
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: node scripts/ci/describe-db-target.mjs
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Check migration status (diagnostic)
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate status
+
+      - name: Inspect production database state
+        id: inspect_db
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: node scripts/ci/inspect-db-state.mjs
+
+      - name: Stop for manual baseline review
+        if: steps.inspect_db.outputs.baseline_needed == 'true'
+        run: |
+          echo "Production database has application tables without a valid initial migration record." >&2
+          echo "Manual baseline review is required before any production migration or deployment." >&2
+          exit 1
+
+      - name: Apply migrations
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Check migration status (strict)
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate status
+
+      - name: Verify required schema
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        run: npx tsx scripts/ci/assert-required-schema.ts
+
       - name: Create .vercel/project.json
+        if: github.event_name == 'push' && github.ref_name == 'main'
         run: |
           mkdir -p .vercel
           echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
 
-      # ── Pull Vercel project config ───────────────────────────────────────────
-      # Downloads .vercel/project.json and production environment variables.
-      - name: Pull Vercel environment config
+      - name: Pull Vercel runtime environment config
+        if: github.event_name == 'push' && github.ref_name == 'main'
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
-      # ── Vercel build ─────────────────────────────────────────────────────────
-      # Builds the deployment artifact using Vercel's pipeline.
+      - name: Prepare runtime environment file
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        run: grep -vE '^(DATABASE_URL|DIRECT_URL)=' .vercel/.env.production.local > .vercel/.env.production.runtime.local
+
+      - name: Run lint
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        run: npm run lint
+
+      - name: Run TypeScript checks
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        run: npx tsc --noEmit
+
+      - name: Build application
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        run: |
+          set -a
+          source .vercel/.env.production.runtime.local
+          set +a
+          npm run build
+
       - name: Vercel build
+        if: github.event_name == 'push' && github.ref_name == 'main'
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
-      # ── Deploy to Vercel production ──────────────────────────────────────────
-      # --prebuilt uses the artifact from the build step above.
-      # --prod promotes the deployment to the production domain (peehub.hdolabs.com).
       - name: Deploy to Vercel (production)
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> "$GITHUB_ENV"
+
+      - name: Post-deployment health check
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        run: |
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health"
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/ready"

@@ -24,67 +24,169 @@ jobs:
     environment: dev
 
     env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      PRODUCTION_DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Node.js ─────────────────────────────────────────────────────────────
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      # ── Install dependencies ────────────────────────────────────────────────
-      # npm ci ensures a clean, reproducible install from package-lock.json.
+      - name: Validate deployment scope
+        run: |
+          test "${GITHUB_REF_NAME}" = "develop"
+          echo "Deploying develop branch to Preview environment"
+
       - name: Install dependencies
         run: npm ci
 
-      # ── Prisma generate ─────────────────────────────────────────────────────
-      # Generates the Prisma client from schema.prisma so the build step can
-      # import @prisma/client. The generated files are not committed to git.
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      # ── Build ────────────────────────────────────────────────────────────────
-      # next build runs here to catch type errors and build failures before
-      # touching Vercel. The deployment step is skipped if this fails.
-      - name: Build application
-        run: npm run build
-
-      # ── Install Vercel CLI ───────────────────────────────────────────────────
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      # ── Recreate Vercel project link metadata in CI ────────────────────────
-      # .vercel is gitignored locally, so CI reconstructs project.json from
-      # environment-scoped secrets before calling vercel pull.
       - name: Create .vercel/project.json
         run: |
           mkdir -p .vercel
           echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
 
-      # ── Pull Vercel project config ───────────────────────────────────────────
-      # Downloads .vercel/project.json and Preview environment variables.
-      # On the Hobby plan, "preview" is the correct environment for non-production
-      # deployments. There is no custom environment support on Hobby.
-      - name: Pull Vercel environment config
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Prepare database comparison values
+        run: |
+          test -n "$DATABASE_URL"
+          test -n "$DIRECT_URL"
+          test -n "$PRODUCTION_DATABASE_URL"
+          test -n "$PRODUCTION_DIRECT_URL"
+          cat > .ci.preview.env <<EOF
+          DATABASE_URL="$DATABASE_URL"
+          DIRECT_URL="$DIRECT_URL"
+          EOF
+          cat > .ci.production.env <<EOF
+          DATABASE_URL="$PRODUCTION_DATABASE_URL"
+          DIRECT_URL="$PRODUCTION_DIRECT_URL"
+          EOF
 
-      # ── Vercel build ─────────────────────────────────────────────────────────
-      # Builds the deployment artifact using Vercel's pipeline.
-      # No --prod flag — this produces a preview artifact.
+      - name: Print database source diagnostics
+        run: |
+          echo "GitHub environment: dev"
+          echo "Git branch: ${GITHUB_REF_NAME}"
+
+      - name: Validate database separation
+        run: node scripts/ci/check-db-separation.mjs .ci.preview.env .ci.production.env
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Check migration status (diagnostic)
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate status
+
+      - name: Inspect develop database state
+        id: inspect_db
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: node scripts/ci/inspect-db-state.mjs
+
+      - name: Resolve baseline migration
+        if: steps.inspect_db.outputs.baseline_needed == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate resolve --applied 20260418000100_init_schema
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Check migration status (strict)
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate status
+
+      - name: Verify required schema
+        run: npx tsx scripts/ci/assert-required-schema.ts
+
+      - name: Pull Vercel runtime environment config
+        run: vercel pull --yes --environment=preview --git-branch=develop --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Validate Paystack test-mode keys
+        run: |
+          set -a
+          source .vercel/.env.preview.local
+          set +a
+          PAYSTACK_SECRET_KEY_CLEAN="${PAYSTACK_SECRET_KEY%\\n}"
+          NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN="${NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY%\\n}"
+          test -n "$PAYSTACK_SECRET_KEY_CLEAN"
+          test -n "$NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN"
+          case "$PAYSTACK_SECRET_KEY_CLEAN" in
+            sk_test_*) ;;
+            *) echo "PAYSTACK_SECRET_KEY must use test-mode prefix in Deploy — Dev" >&2; exit 1 ;;
+          esac
+          case "$NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN" in
+            pk_test_*) ;;
+            *) echo "NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY must use test-mode prefix in Deploy — Dev" >&2; exit 1 ;;
+          esac
+
+      - name: Prepare runtime environment file
+        run: grep -vE '^(DATABASE_URL|DIRECT_URL)=' .vercel/.env.preview.local > .vercel/.env.preview.runtime.local
+
+      - name: Seed development database
+        run: |
+          set -a
+          source .vercel/.env.preview.runtime.local
+          set +a
+          export ADMIN_EMAIL="${ADMIN_EMAIL%\\n}"
+          export ADMIN_FULL_NAME="${ADMIN_FULL_NAME%\\n}"
+          export DEMO_USER_EMAIL="${DEMO_USER_EMAIL%\\n}"
+          export DEMO_USER_FULL_NAME="${DEMO_USER_FULL_NAME%\\n}"
+          SEED_MODE=dev npx prisma db seed
+
+      - name: Re-run development seed for idempotency
+        run: |
+          set -a
+          source .vercel/.env.preview.runtime.local
+          set +a
+          export ADMIN_EMAIL="${ADMIN_EMAIL%\\n}"
+          export ADMIN_FULL_NAME="${ADMIN_FULL_NAME%\\n}"
+          export DEMO_USER_EMAIL="${DEMO_USER_EMAIL%\\n}"
+          export DEMO_USER_FULL_NAME="${DEMO_USER_FULL_NAME%\\n}"
+          SEED_MODE=dev npx prisma db seed
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run TypeScript checks
+        run: npx tsc --noEmit
+
+      - name: Build application
+        run: |
+          set -a
+          source .vercel/.env.preview.runtime.local
+          set +a
+          npm run build
+
       - name: Vercel build
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
-      # ── Deploy as Vercel Preview ─────────────────────────────────────────────
-      # --prebuilt uses the artifact from the build step (no double build).
-      # No --prod flag — this creates a Preview deployment.
-      # In Vercel project settings, assign dev.peehub.hdolabs.com to the
-      # "develop" branch so this preview URL resolves to that domain.
       - name: Deploy to Vercel (preview)
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> "$GITHUB_ENV"
+
+      - name: Post-deployment health check
+        run: |
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health"
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/ready"
