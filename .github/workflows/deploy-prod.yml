@@ -55,6 +55,24 @@ jobs:
       - name: Pull Vercel environment config
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
+      - name: Validate Paystack live-mode keys
+        run: |
+          set -a
+          source .vercel/.env.production.local
+          set +a
+          PAYSTACK_SECRET_KEY_CLEAN="${PAYSTACK_SECRET_KEY%\\n}"
+          NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN="${NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY%\\n}"
+          test -n "$PAYSTACK_SECRET_KEY_CLEAN"
+          test -n "$NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN"
+          case "$PAYSTACK_SECRET_KEY_CLEAN" in
+            sk_live_*) ;;
+            *) echo "PAYSTACK_SECRET_KEY must use live-mode prefix in Deploy — Production" >&2; exit 1 ;;
+          esac
+          case "$NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN" in
+            pk_live_*) ;;
+            *) echo "NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY must use live-mode prefix in Deploy — Production" >&2; exit 1 ;;
+          esac
+
       - name: Pull Preview env for fingerprint comparison
         run: vercel env pull .vercel/.env.preview.compare --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 

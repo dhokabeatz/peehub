@@ -122,6 +122,24 @@ jobs:
       - name: Pull Vercel runtime environment config
         run: vercel pull --yes --environment=preview --git-branch=develop --token=${{ secrets.VERCEL_TOKEN }}
 
+      - name: Validate Paystack test-mode keys
+        run: |
+          set -a
+          source .vercel/.env.preview.local
+          set +a
+          PAYSTACK_SECRET_KEY_CLEAN="${PAYSTACK_SECRET_KEY%\\n}"
+          NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN="${NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY%\\n}"
+          test -n "$PAYSTACK_SECRET_KEY_CLEAN"
+          test -n "$NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN"
+          case "$PAYSTACK_SECRET_KEY_CLEAN" in
+            sk_test_*) ;;
+            *) echo "PAYSTACK_SECRET_KEY must use test-mode prefix in Deploy — Dev" >&2; exit 1 ;;
+          esac
+          case "$NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY_CLEAN" in
+            pk_test_*) ;;
+            *) echo "NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY must use test-mode prefix in Deploy — Dev" >&2; exit 1 ;;
+          esac
+
       - name: Prepare runtime environment file
         run: grep -vE '^(DATABASE_URL|DIRECT_URL)=' .vercel/.env.preview.local > .vercel/.env.preview.runtime.local
 
