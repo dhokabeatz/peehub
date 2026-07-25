@@ -83,11 +83,38 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Check migration status
+      - name: Check migration status (diagnostic)
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: npx prisma migrate status
 
+      - name: Inspect develop database state
+        id: inspect_db
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: node scripts/ci/inspect-db-state.mjs
+
+      - name: Resolve baseline migration
+        if: steps.inspect_db.outputs.baseline_needed == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate resolve --applied 20260418000100_init_schema
+
       - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: npx prisma migrate deploy
+
+      - name: Check migration status (strict)
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate status
 
       - name: Verify required schema
         run: npx tsx scripts/ci/assert-required-schema.ts
